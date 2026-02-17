@@ -1,0 +1,576 @@
+/* --- 1. الأساسيات والمتغيرات (Cinema Hub Pro Theme) --- */
+:root {
+    --primary: #e50914;
+    --bg: #050505;
+    --glass: rgba(255, 255, 255, 0.08);
+    --glass-border: rgba(255, 255, 255, 0.15);
+    --text: #ffffff;
+    --chat-width: 380px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', Roboto, sans-serif;
+    height: 100vh;
+    width: 100vw;
+    overflow: hidden; /* يمنع التمرير الخارجي للموقع بالكامل */
+    direction: rtl;
+}
+
+/* --- 2. الهيكل الرئيسي (Responsive App Layout) --- */
+.app-container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    padding: 12px;
+    gap: 12px;
+}
+
+header {
+    flex: 0 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 20px;
+    background: var(--glass);
+    backdrop-filter: blur(15px);
+    border-radius: 18px;
+    border: 1px solid var(--glass-border);
+}
+
+main {
+    flex: 1;
+    display: flex;
+    gap: 15px;
+    overflow: hidden; /* يمنع تمدد الصفحة الرئيسية */
+}
+
+/* التجاوب مع الجوال */
+@media (max-width: 1024px) {
+    main {
+        flex-direction: column;
+        overflow-y: auto; /* السماح بالتمرير في الجوال */
+    }
+    aside {
+        width: 100% !important;
+        height: 500px !important;
+        flex: none !important;
+    }
+    .video-section {
+        flex: none !important;
+        height: 56.25vw; /* الحفاظ على أبعاد 16:9 */
+    }
+    header {
+        flex-direction: column;
+        height: auto;
+        gap: 15px;
+    }
+    .search-box { width: 100% !important; }
+}
+
+/* --- 3. البحث والمدخلات --- */
+.search-box {
+    display: flex;
+    flex-direction: column;
+    width: 400px;
+    position: relative;
+}
+
+#movieSearch, #directLinkInput {
+    background: rgba(0,0,0,0.5);
+    border: 1px solid var(--glass-border);
+    color: white;
+    padding: 10px;
+    border-radius: 10px;
+    outline: none;
+    width: 100%;
+}
+
+.dropdown {
+    position: absolute;
+    top: 50px;
+    width: 100%;
+    background: #111;
+    border: 1px solid var(--primary);
+    z-index: 5000;
+    max-height: 280px;
+    overflow-y: auto;
+    border-radius: 12px;
+}
+
+.search-item {
+    display: flex;
+    align-items: center;
+    padding: 10px;
+    gap: 10px;
+    cursor: pointer;
+}
+.search-item:hover { background: var(--primary); }
+.search-item img { width: 40px; height: 60px; object-fit: cover; border-radius: 4px; }
+
+/* --- 4. مشغل الفيديو والسينما --- */
+.video-section {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0; /* يمنع انهيار الـ Flex */
+}
+
+#video-wrapper {
+    flex: 1;
+    background: #000;
+    border-radius: 25px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* ضمان أن كل المشغلات تملأ المساحة */
+#video, #iframe-slot, #youtube-player, #iframe-slot iframe {
+    width: 100% !important;
+    height: 100% !important;
+    position: absolute;
+    top: 0;
+    left: 0;
+    object-fit: contain;
+}
+
+#video-touch-layer {
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    pointer-events: none; /* يسمح بمرور النقرات للمشغل تحتها */
+}
+
+/* --- 5. الدردشة (إصلاح تمدد الرسائل) --- */
+aside {
+    flex: 0 0 var(--chat-width);
+    display: flex;
+    flex-direction: column;
+    background: rgba(15, 15, 15, 0.7);
+    backdrop-filter: blur(25px);
+    border-radius: 25px;
+    border: 1px solid var(--glass-border);
+    overflow: hidden;
+}
+
+.chat-header {
+    padding: 15px;
+    text-align: center;
+    font-weight: bold;
+    border-bottom: 1px solid var(--glass-border);
+}
+
+#messages {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden; /* يمنع التمدد الجانبي تماماً */
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.msg {
+    display: flex;
+    gap: 12px;
+    max-width: 100%;
+    align-items: flex-start;
+}
+
+.msg img {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    border: 2px solid var(--primary);
+    object-fit: cover;
+    flex-shrink: 0; /* يمنع ضغط الصورة */
+}
+
+.msg div b { font-size: 13px; color: var(--primary); display: block; margin-bottom: 3px; }
+
+.msg div p {
+    background: rgba(255, 255, 255, 0.06);
+    padding: 10px 14px;
+    border-radius: 15px;
+    border-top-right-radius: 2px;
+    margin: 0;
+    font-size: 14.5px;
+    color: #efefef;
+    line-height: 1.5;
+
+    /* الحل السحري للنصوص والروابط الطويلة */
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    word-break: break-word;
+    max-width: 250px; /* يضمن عدم تمدد الفقرة خارج عرض الشات */
+}
+
+.chat-input { padding: 15px; background: rgba(0,0,0,0.3); }
+
+/* --- 6. التفاعلات (الإيموجي) --- */
+.cinema-footer {
+    padding: 12px;
+    background: var(--glass);
+    border-radius: 18px;
+    display: flex;
+    justify-content: center;
+}
+
+.reactions-bar { display: flex; gap: 15px; }
+.reactions-bar button {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--glass-border);
+    font-size: 24px;
+    padding: 6px 15px;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+.reactions-bar button:hover { background: var(--primary); transform: translateY(-5px); }
+
+.floating-emoji {
+    position: absolute;
+    bottom: 20%;
+    font-size: 55px;
+    pointer-events: none;
+    z-index: 1000;
+    animation: cinematicFloat 2.5s forwards;
+}
+
+@keyframes cinematicFloat {
+    0% { transform: translateY(0) scale(0); opacity: 0; }
+    20% { opacity: 1; transform: translateY(-30px) scale(1.2); }
+    100% { transform: translateY(-450px) scale(1.6); opacity: 0; }
+}
+
+/* --- 7. شاشة الدخول (Login) --- */
+.overlay {
+    position: fixed; inset: 0;
+    background: radial-gradient(circle, #1a1a1a 0%, #000 100%);
+    z-index: 9999;
+    display: flex; align-items: center; justify-content: center;
+}
+
+.login-card {
+    background: #111;
+    padding: 35px;
+    width: 360px;
+    border-radius: 30px;
+    border: 1px solid var(--glass-border);
+    text-align: center;
+}
+
+#preview {
+    width: 110px; height: 110px;
+    border-radius: 50%;
+    border: 3px solid var(--primary);
+    object-fit: cover;
+    margin-bottom: 20px;
+}
+
+.presets { display: flex; gap: 8px; overflow-x: auto; padding: 10px; margin-bottom: 15px; }
+.presets img { width: 45px; height: 45px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; }
+.presets img:hover { border-color: var(--primary); }
+
+.btn-primary {
+    width: 100%; padding: 14px;
+    background: var(--primary);
+    border: none; color: white;
+    font-weight: bold; border-radius: 12px;
+    cursor: pointer; transition: 0.3s;
+}
+
+/* تخصيص شريط التمرير */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-thumb { background: var(--primary); border-radius: 10px; }
+/* --- تحسين شاشة الدخول (Login Screen) --- */
+.overlay {
+    position: fixed;
+    inset: 0;
+    /* خلفية متدرجة سينمائية */
+    background: radial-gradient(circle at center, #221f1f 0%, #050505 100%);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.login-card {
+    background: rgba(20, 20, 20, 0.75);
+    backdrop-filter: blur(20px); /* تأثير الزجاج */
+    -webkit-backdrop-filter: blur(20px);
+    padding: 40px;
+    width: 100%;
+    max-width: 420px;
+    border-radius: 24px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    text-align: center;
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
+    animation: fadeInCard 0.8s ease-out;
+}
+
+@keyframes fadeInCard {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.login-card h1 {
+    font-size: 2rem;
+    margin-bottom: 30px;
+    background: linear-gradient(to right, #fff, var(--primary));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-weight: 800;
+}
+
+/* --- قسم الصورة الشخصية (Profile Section) --- */
+.profile-section {
+    margin-bottom: 25px;
+}
+
+.profile-main {
+    position: relative;
+    display: inline-block;
+}
+
+#preview {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    border: 4px solid var(--primary);
+    object-fit: cover;
+    background: #111;
+    box-shadow: 0 0 20px rgba(229, 9, 20, 0.3);
+    transition: transform 0.3s ease;
+}
+
+#preview:hover {
+    transform: scale(1.05);
+}
+
+.upload-btn {
+    position: absolute;
+    bottom: 5px;
+    right: 5px;
+    background: var(--primary);
+    color: white;
+    width: 35px;
+    height: 35px;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    border: 3px solid #1a1a1a;
+    transition: 0.3s;
+}
+
+.upload-btn:hover {
+    transform: rotate(15deg) scale(1.1);
+}
+
+/* --- الأفاتارات الجاهزة --- */
+.presets {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    margin-top: 15px;
+    padding: 10px;
+}
+
+.presets img {
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: all 0.3s ease;
+    filter: grayscale(0.4);
+}
+
+.presets img:hover {
+    border-color: var(--primary);
+    transform: translateY(-5px);
+    filter: grayscale(0);
+}
+
+/* --- المدخلات (Inputs) --- */
+.login-card input {
+    width: 100%;
+    padding: 14px 18px;
+    margin-bottom: 15px;
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    color: white;
+    font-size: 1rem;
+    transition: 0.3s;
+}
+
+.login-card input:focus {
+    border-color: var(--primary);
+    background: rgba(0, 0, 0, 0.8);
+    box-shadow: 0 0 10px rgba(229, 9, 20, 0.2);
+    outline: none;
+}
+
+/* --- زر الدخول الرئيسي --- */
+.btn-primary {
+    width: 100%;
+    padding: 16px;
+    background: var(--primary);
+    border: none;
+    color: white;
+    font-size: 1.1rem;
+    font-weight: bold;
+    border-radius: 12px;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    transition: 0.4s;
+    margin-top: 10px;
+    box-shadow: 0 4px 15px rgba(229, 9, 20, 0.4);
+}
+
+.btn-primary:hover {
+    background: #f40612;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(229, 9, 20, 0.6);
+}
+
+.btn-primary:active {
+    transform: translateY(0);
+}
+
+/* التجاوب مع الجوال الصغير جداً */
+@media (max-width: 480px) {
+    .login-card {
+        padding: 25px 20px;
+    }
+    .login-card h1 {
+        font-size: 1.6rem;
+    }
+}
+/* --- 1. إصلاح الصور الشخصية (Avatar Fix) --- */
+#preview, .msg img, .user-img-small, .presets img {
+    width: 100px; /* أو الحجم المطلوب */
+    height: 100px;
+    object-fit: cover; /* هذا يمنع التمدد ويقص الصورة لتناسب الدائرة */
+    border-radius: 50%;
+    flex-shrink: 0; /* يمنع انكماش الصورة في الزحام */
+}
+
+/* أحجام مخصصة لكل مكان */
+.msg img { width: 40px; height: 40px; }
+.user-img-small { width: 35px; height: 35px; }
+.presets img { width: 45px; height: 45px; }
+
+/* --- 2. إصلاح التحكم في الفيديو (Video Controls Fix) --- */
+#video-wrapper {
+    position: relative;
+    background: #000;
+}
+
+/* الطبقة التي كانت تمنع الضغط */
+#video-touch-layer {
+    position: absolute;
+    inset: 0;
+    z-index: 1; /* جعلها تحت أدوات التحكم */
+    pointer-events: none; /* الحل السحري: تمرير النقرات لما تحتها */
+}
+
+video, #youtube-player, #iframe-slot iframe {
+    position: relative;
+    z-index: 2; /* جعل الفيديو فوق الطبقات الخلفية */
+    width: 100% !important;
+    height: 100% !important;
+}
+
+/* --- 3. تحسين الشات (Enhanced Chat UI) --- */
+aside {
+    background: rgba(10, 10, 10, 0.8) !important;
+    border-left: 1px solid var(--glass-border);
+    display: flex;
+    flex-direction: column;
+}
+
+#messages {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.msg {
+    display: flex;
+    gap: 12px;
+    max-width: 100%;
+    animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+    from { opacity: 0; transform: translateX(10px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+.msg-body {
+    display: flex;
+    flex-direction: column;
+    max-width: 80%;
+}
+
+.msg-body b {
+    font-size: 12px;
+    color: var(--primary);
+    margin-bottom: 4px;
+    margin-right: 5px;
+}
+
+.msg-content {
+    background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%);
+    padding: 10px 15px;
+    border-radius: 18px;
+    border-top-right-radius: 2px; /* شكل فقاعة مميز */
+    border: 1px solid rgba(255,255,255,0.1);
+    color: #fff;
+    font-size: 14px;
+    line-height: 1.4;
+    word-wrap: break-word;
+    word-break: break-word;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+}
+
+/* تحسين مدخل الشات */
+.chat-input {
+    padding: 15px;
+    background: rgba(0,0,0,0.4);
+}
+
+#chatInput {
+    border: none !important;
+    background: rgba(255,255,255,0.05) !important;
+    border-radius: 25px !important;
+    padding: 12px 20px !important;
+    transition: 0.3s;
+}
+
+#chatInput:focus {
+    background: rgba(255,255,255,0.1) !important;
+    box-shadow: 0 0 15px rgba(229, 9, 20, 0.2);
+}
+
+/* --- تعديلات إضافية للتجاوب --- */
+@media (max-width: 768px) {
+    .msg-content { max-width: 100%; }
+}
