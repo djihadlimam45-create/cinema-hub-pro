@@ -574,3 +574,18 @@ aside {
 @media (max-width: 768px) {
     .msg-content { max-width: 100%; }
 }
+/* تأثير النبض */
+@keyframes pulse-animation {
+  0% { box-shadow: 0 0 0 0px rgba(46, 204, 113, 0.7); }
+  100% { box-shadow: 0 0 0 15px rgba(46, 204, 113, 0); }
+}
+
+.mic-active {
+  background-color: #2ecc71 !important; /* لون أخضر */
+  border-color: #2ecc71 !important;
+  animation: pulse-animation 1.5s infinite;
+}
+
+#mic-btn {
+  transition: all 0.3s ease; /* تنعيم التحول بين الألوان */
+}

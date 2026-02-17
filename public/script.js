@@ -202,3 +202,66 @@ function playDirectUrl() {
 }
 // أضف هذا في script.js
 videoElement.preservesPitch = false;
+let myStream;
+let peer;
+const peers = {};
+
+// إعداد الصوت عند الدخول
+function setupVoice(userId, roomId) {
+    peer = new Peer(userId); // نستخدم ID السوكيت كـ ID للصوت
+
+    // 1. استقبال مكالمة من شخص آخر
+    peer.on('call', call => {
+        navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+            call.answer(stream); // الرد بصوتنا
+            const audio = document.createElement('audio');
+            call.on('stream', userStream => addAudioStream(audio, userStream));
+        });
+    });
+
+    // 2. السماح للآخرين بالاتصال بنا
+    socket.on('user-connected-voice', remoteUserId => {
+        connectToNewUser(remoteUserId);
+    });
+}
+
+function connectToNewUser(remoteUserId) {
+    navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+        const call = peer.call(remoteUserId, stream);
+        const audio = document.createElement('audio');
+        call.on('stream', userStream => addAudioStream(audio, userStream));
+        peers[remoteUserId] = call;
+    });
+}
+
+function addAudioStream(audio, stream) {
+    audio.srcObject = stream;
+    audio.addEventListener('loadedmetadata', () => audio.play());
+}
+
+// تشغيل/إطفاء الميكروفون
+function toggleMic() {
+    if (!myStream) {
+        // إذا لم نكن قد حصلنا على إذن الميكروفون بعد
+        navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+            myStream = stream;
+            activateMic();
+        }).catch(err => alert("يرجى السماح بالوصول للميكروفون"));
+        return;
+    }
+
+    const enabled = myStream.getAudioTracks()[0].enabled;
+    if (enabled) {
+        myStream.getAudioTracks()[0].enabled = false;
+        document.getElementById('mic-btn').innerText = "🔇";
+        document.getElementById('mic-btn').classList.remove('mic-active');
+    } else {
+        activateMic();
+    }
+}
+
+function activateMic() {
+    myStream.getAudioTracks()[0].enabled = true;
+    document.getElementById('mic-btn').innerText = "🎙️";
+    document.getElementById('mic-btn').classList.add('mic-active');
+}

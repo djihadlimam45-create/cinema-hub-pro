@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <script src="https://www.youtube.com/iframe_api"></script>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 </head>
 <body>
     <div id="ambilight"></div>
@@ -60,6 +61,7 @@
         <button onclick="sendEmoji('😱')" title="رعب">😱</button>
         <button onclick="sendEmoji('❤️')" title="حب">❤️</button>
         <button onclick="sendEmoji('🍿')" title="فشار">🍿</button>
+        <button id="mic-btn" onclick="toggleMic()" style="background: #222; border: 1px solid #444; border-radius: 50%; width: 45px; height: 45px; cursor: pointer; font-size: 20px;">🎙️</button>
     </div>
 </div>
             </div>
