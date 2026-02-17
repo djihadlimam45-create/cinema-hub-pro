@@ -253,9 +253,20 @@ function connectToNewUser(remoteUserId) {
 
 function addAudioStream(audio, stream) {
     audio.srcObject = stream;
-    audio.addEventListener('loadedmetadata', () => audio.play());
-}
+    audio.style.display = 'none'; // لا نحتاج لرؤية عنصر الصوت
+    
+    audio.addEventListener('loadedmetadata', () => {
+        audio.play().catch(e => {
+            console.log("المتصفح منع التشغيل التلقائي، سيتم التشغيل عند أول ضغطة");
+            // حل مشكلة المنع: التشغيل عند أول نقرة في الصفحة
+            window.addEventListener('click', () => {
+                audio.play();
+            }, { once: true });
+        });
+    });
 
+    document.body.append(audio); // إضافة العنصر للصفحة ليتمكن من العمل
+}
 // تشغيل/إطفاء الميكروفون
 function toggleMic() {
     if (!myStream) {
