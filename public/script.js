@@ -213,31 +213,47 @@ function playDirectUrl() {
     }
 }
 
+// تأكد أن هذه المتغيرات معرفة في أعلى ملف script.js (خارج الدالة)
 const client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
 let localTracks = { audioTrack: null };
 
 async function joinVoice() {
     const APP_ID = "d3b9b5bf43c04075ad68a62625521283";
-    const CHANNEL = "main_room"; // اسم الغرفة
-    const TOKEN = null; // اتركه null حالياً للتجربة
+    const CHANNEL = "main_room"; 
+    const TOKEN = null; 
 
-    // الانضمام للقناة
-    await client.join(APP_ID, CHANNEL, TOKEN, null);
-
-    // إنشاء وبث الصوت المحلي
-    localTracks.audioTrack = await AgoraRTC.createMicrophoneAudioTrack();
-    await client.publish(localTracks.audioTrack);
-    
-    document.getElementById('mic-btn').classList.add('mic-active');
-    console.log("صوتك الآن يبث للجميع عبر Agora!");
-
-    // الاستماع لأصوات الآخرين وتشغيلها فوراً
-    client.on("user-published", async (user, mediaType) => {
-        await client.subscribe(user, mediaType);
-        if (mediaType === "audio") {
-            user.audioTrack.play();
+    try {
+        // التحقق مما إذا كنا متصلين بالفعل لتجنب الخطأ
+        if (client.connectionState === "DISCONNECTED") {
+            await client.join(APP_ID, CHANNEL, TOKEN, null);
         }
-    });
+
+        // إنشاء المايك إذا لم يكن موجوداً
+        if (!localTracks.audioTrack) {
+            localTracks.audioTrack = await AgoraRTC.createMicrophoneAudioTrack();
+        }
+        
+        // نشر الصوت
+        await client.publish(localTracks.audioTrack);
+        
+        document.getElementById('mic-btn').classList.add('mic-active');
+        console.log("✅ تم تفعيل الصوت وبدء البث");
+
+        // الاستماع للمشاركين الآخرين (مهم جداً أن تكون خارج شرط الاتصال لتلتقط أي شخص يدخل)
+        client.on("user-published", async (user, mediaType) => {
+            await client.subscribe(user, mediaType);
+            if (mediaType === "audio") {
+                user.audioTrack.play();
+                console.log("🔊 تسمع صوت صديقك الآن");
+            }
+        });
+
+    } catch (error) {
+        console.error("❌ فشل تشغيل الصوت:", error);
+        if (error.code === "CAN_NOT_GET_GATEWAY_SERVER") {
+            alert("مشكلة في الاتصال بسيرفر Agora، تأكد من جودة الإنترنت");
+        }
+    }
 }
 
 async function leaveVoice() {
