@@ -214,52 +214,49 @@ function playDirectUrl() {
 }
 
 // تأكد أن هذه المتغيرات معرفة في أعلى ملف script.js (خارج الدالة)
+// 1. التعريفات الأساسية (مرة واحدة فقط في أعلى الملف)
 const client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
-// تأكد أن هذه المتغيرات في أعلى الملف مرة واحدة فقط
-let isMicOn = false;
 let localAudioTrack = null;
+let isMicOn = false;
 
+// 2. الجزء السحري: الاستماع لصوت الآخرين (بدونه لن تسمع أحداً)
+client.on("user-published", async (user, mediaType) => {
+    await client.subscribe(user, mediaType);
+    if (mediaType === "audio") {
+        user.audioTrack.play(); // هذا ما يجعلك تسمع الطرف الآخر
+        console.log("🔊 صوت الطرف الآخر يعمل الآن");
+    }
+});
+
+// 3. دالة التحكم في المايك (تشغيل وإيقاف)
 async function toggleMic() {
     const micBtn = document.getElementById('mic-btn');
-
-    // 1. إذا كنا في حالة اتصال بالفعل، نمنع تنفيذ الكود مرة أخرى لتجنب خطأ INVALID_OPERATION
-    if (client.connectionState === "CONNECTING" || client.connectionState === "RECONNECTING") {
-        console.log("يرجى الانتظار، جاري الاتصال...");
-        return;
-    }
+    const APP_ID = "97b6d211d09447b480ae3b8b62cc4a68"; // تأكد أنه App ID المشروع الجديد
+    const CHANNEL = "main_room";
 
     if (!isMicOn) {
-        // --- محاولة التشغيل ---
         try {
-            const APP_ID = "97b6d211d09447b480ae3b8b62cc4a68";
-            const CHANNEL = "main_room";
-
-            // الانضمام فقط إذا كنا غير متصلين
+            // الانضمام
             if (client.connectionState === "DISCONNECTED") {
                 await client.join(APP_ID, CHANNEL, null, null);
             }
 
-            // إنشاء المايك مع فحص الأذونات (لحل خطأ Permission Denied)
-            localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack().catch(err => {
-                if (err.code === "PERMISSION_DENIED") {
-                    alert("يرجى تفعيل إذن الميكروفون من إعدادات المتصفح أو الهاتف");
-                }
-                throw err;
-            });
-
+            // فتح المايك
+            localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
             await client.publish(localAudioTrack);
             
             isMicOn = true;
             micBtn.innerHTML = "🎤"; 
             micBtn.classList.add('mic-active');
-            console.log("✅ المايك يعمل الآن");
+            console.log("✅ مايكك مفتوح الآن والجميع يسمعك");
 
         } catch (error) {
             console.error("❌ فشل التشغيل:", error);
+            alert("تأكد من السماح للمتصفح باستخدام المايك");
         }
     } else {
-        // --- محاولة الإيقاف ---
         try {
+            // إغلاق المايك والمغادرة
             if (localAudioTrack) {
                 await client.unpublish(localAudioTrack);
                 localAudioTrack.stop();
@@ -271,47 +268,9 @@ async function toggleMic() {
             isMicOn = false;
             micBtn.innerHTML = "🔇";
             micBtn.classList.remove('mic-active');
-            console.log("❌ تم إيقاف المايك");
-
+            console.log("❌ تم إيقاف المايك والمغادرة");
         } catch (error) {
             console.error("❌ فشل الإيقاف:", error);
-            // إعادة ضبط الحالة يدوياً إذا حدث خطأ في المغادرة
-            isMicOn = false;
-            micBtn.classList.remove('mic-active');
         }
-    }
-}
-
-async function leaveVoice() {
-    localTracks.audioTrack.stop();
-    localTracks.audioTrack.close();
-    await client.leave();
-    document.getElementById('mic-btn').classList.remove('mic-active');
-}
-let isVoiceConnected = false;
-
-async function handleMicClick() {
-    const micBtn = document.getElementById('mic-btn');
-    const micIcon = document.getElementById('mic-icon');
-
-    if (!isVoiceConnected) {
-        // إذا كان المايك مطفأ، نقوم بالاتصال
-        try {
-            await joinVoice(); // الدالة التي تستخدم Agora
-            isVoiceConnected = true;
-            micBtn.classList.add('mic-active');
-            micIcon.innerText = "🎤"; // تغيير الشكل لميكروفون مفتوح
-            console.log("تم تفعيل المايك");
-        } catch (err) {
-            console.error("فشل تفعيل المايك:", err);
-            alert("تأكد من إعطاء إذن الميكروفون للمتصفح");
-        }
-    } else {
-        // إذا كان المايك يعمل، نقوم بإطفائه
-        await leaveVoice();
-        isVoiceConnected = false;
-        micBtn.classList.remove('mic-active');
-        micIcon.innerText = "🔇"; // تغيير الشكل لميكروفون صامت
-        console.log("تم إغلاق المايك");
     }
 }
