@@ -218,7 +218,7 @@ const client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
 let localTracks = { audioTrack: null };
 
 async function joinVoice() {
-    const APP_ID = "d3b9b5bf43c04075ad68a62625521283";
+    const APP_ID = "97b6d211d09447b480ae3b8b62cc4a68";
     const CHANNEL = "main_room"; 
     const TOKEN = null; 
 
