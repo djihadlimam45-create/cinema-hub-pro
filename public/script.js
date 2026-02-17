@@ -217,57 +217,67 @@ function playDirectUrl() {
 const client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
 // تأكد أن هذه المتغيرات في أعلى الملف مرة واحدة فقط
 let isMicOn = false;
-let localAudioTrack = null; 
+let localAudioTrack = null;
 
 async function toggleMic() {
     const micBtn = document.getElementById('mic-btn');
 
+    // 1. إذا كنا في حالة اتصال بالفعل، نمنع تنفيذ الكود مرة أخرى لتجنب خطأ INVALID_OPERATION
+    if (client.connectionState === "CONNECTING" || client.connectionState === "RECONNECTING") {
+        console.log("يرجى الانتظار، جاري الاتصال...");
+        return;
+    }
+
     if (!isMicOn) {
-        // --- حالة التشغيل ---
+        // --- محاولة التشغيل ---
         try {
             const APP_ID = "97b6d211d09447b480ae3b8b62cc4a68";
             const CHANNEL = "main_room";
 
-            // فحص: إذا كان العميل غير متصل، نقوم بالاتصال
+            // الانضمام فقط إذا كنا غير متصلين
             if (client.connectionState === "DISCONNECTED") {
                 await client.join(APP_ID, CHANNEL, null, null);
             }
 
-            // إنشاء وبث المايك
-            if (!localAudioTrack) {
-                localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
-            }
-            await client.publish(localAudioTrack);
+            // إنشاء المايك مع فحص الأذونات (لحل خطأ Permission Denied)
+            localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack().catch(err => {
+                if (err.code === "PERMISSION_DENIED") {
+                    alert("يرجى تفعيل إذن الميكروفون من إعدادات المتصفح أو الهاتف");
+                }
+                throw err;
+            });
 
+            await client.publish(localAudioTrack);
+            
             isMicOn = true;
-            micBtn.innerHTML = "🎤"; // أيقونة المايك المفتوح
+            micBtn.innerHTML = "🎤"; 
             micBtn.classList.add('mic-active');
             console.log("✅ المايك يعمل الآن");
 
         } catch (error) {
-            console.error("❌ خطأ في التشغيل:", error);
+            console.error("❌ فشل التشغيل:", error);
         }
     } else {
-        // --- حالة الإيقاف ---
+        // --- محاولة الإيقاف ---
         try {
-            // 1. وقف بث المايك
             if (localAudioTrack) {
                 await client.unpublish(localAudioTrack);
                 localAudioTrack.stop();
                 localAudioTrack.close();
                 localAudioTrack = null;
             }
-
-            // 2. مغادرة القناة تماماً
             await client.leave();
-
+            
             isMicOn = false;
-            micBtn.innerHTML = "🔇"; // أيقونة المايك الصامت
+            micBtn.innerHTML = "🔇";
             micBtn.classList.remove('mic-active');
-            console.log("❌ تم إغلاق المايك والمغادرة");
+            console.log("❌ تم إيقاف المايك");
 
         } catch (error) {
-            console.error("❌ خطأ في الإيقاف:", error);
+            console.error("❌ فشل الإيقاف:", error);
+            // إعادة ضبط الحالة يدوياً إذا حدث خطأ في المغادرة
+            isMicOn = false;
+            micBtn.classList.remove('mic-active');
         }
     }
 }
