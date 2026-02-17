@@ -25,6 +25,8 @@ io.on("connection", (socket) => {
         if(rooms[roomId].currentVideo) {
             socket.emit("video-changed", rooms[roomId].currentVideo);
         }
+        // داخل join-room بعد النجاح
+socket.to(roomId).emit("user-connected-voice", socket.id);
     });
 
     // عندما يغير شخص الفيديو (رابط مباشر أو يوتيوب)

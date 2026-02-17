@@ -1,3 +1,15 @@
+// أضف هذا المتغير في أعلى الملف
+let myStream;
+
+// حدث دالة الدخول أو أضف هذا الجزء في بدايتها
+navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+    myStream = stream;
+    console.log("تم الوصول للميكروفون بنجاح");
+}).catch(err => {
+    console.error("فشل الوصول للميكروفون:", err);
+});
+
+
 const socket = io();
 let currentUser = { name: "", avatar: "" };
 let ytPlayer;
@@ -200,24 +212,29 @@ function playDirectUrl() {
         alert("يرجى وضع رابط فيديو مباشر صحيح (m3u8 أو mp4)");
     }
 }
-// أضف هذا في script.js
-videoElement.preservesPitch = false;
-let myStream;
-let peer;
-const peers = {};
 
 // إعداد الصوت عند الدخول
 function setupVoice(userId, roomId) {
-    peer = new Peer(userId); // نستخدم ID السوكيت كـ ID للصوت
+    p// عند إنشاء الـ Peer، اتركه يولد ID تلقائياً أو استخدم الـ Socket ID
+const peer = new Peer(undefined, {
+    host: '/',
+    port: '443'
+});
 
-    // 1. استقبال مكالمة من شخص آخر
-    peer.on('call', call => {
-        navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
-            call.answer(stream); // الرد بصوتنا
-            const audio = document.createElement('audio');
-            call.on('stream', userStream => addAudioStream(audio, userStream));
-        });
+peer.on('open', id => {
+    console.log("معرف الصوت الخاص بي هو: " + id);
+    // نرسل الـ ID الخاص بالصوت للآخرين عبر السوكيت
+    socket.emit('join-room', ROOM_ID, id); 
+});
+
+// استقبال المكالمات
+peer.on('call', call => {
+    call.answer(myStream); // الرد بالبث الخاص بنا
+    const audio = document.createElement('audio');
+    call.on('stream', userAudioStream => {
+        addAudioStream(audio, userAudioStream);
     });
+});
 
     // 2. السماح للآخرين بالاتصال بنا
     socket.on('user-connected-voice', remoteUserId => {
