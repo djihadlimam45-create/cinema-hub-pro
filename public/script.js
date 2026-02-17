@@ -215,43 +215,61 @@ function playDirectUrl() {
 
 // تأكد أن هذه المتغيرات معرفة في أعلى ملف script.js (خارج الدالة)
 const client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
-let localTracks = { audioTrack: null };
+let isMicOn = false; // متغير لمتابعة حالة المايك
 
-async function joinVoice() {
-    const APP_ID = "97b6d211d09447b480ae3b8b62cc4a68";
-    const CHANNEL = "main_room"; 
-    const TOKEN = null; 
+async function toggleMic() {
+    const micBtn = document.getElementById('mic-btn');
+    
+    if (!isMicOn) {
+        // --- مرحلة التشغيل ---
+        try {
+            const APP_ID = "d3b9b5bf43c04075ad68a62625521283";
+            const CHANNEL = "main_room";
+            const TOKEN = null;
 
-    try {
-        // التحقق مما إذا كنا متصلين بالفعل لتجنب الخطأ
-        if (client.connectionState === "DISCONNECTED") {
             await client.join(APP_ID, CHANNEL, TOKEN, null);
-        }
-
-        // إنشاء المايك إذا لم يكن موجوداً
-        if (!localTracks.audioTrack) {
+            
             localTracks.audioTrack = await AgoraRTC.createMicrophoneAudioTrack();
+            await client.publish(localTracks.audioTrack);
+            
+            // تحديث الشكل
+            micBtn.innerText = "🎤"; 
+            micBtn.classList.add('mic-active');
+            isMicOn = true;
+            console.log("تم تشغيل المايك ✅");
+
+            // الاستماع للآخرين (نضعها مرة واحدة فقط)
+            client.on("user-published", async (user, mediaType) => {
+                await client.subscribe(user, mediaType);
+                if (mediaType === "audio") {
+                    user.audioTrack.play();
+                }
+            });
+
+        } catch (error) {
+            console.error("فشل التشغيل:", error);
         }
-        
-        // نشر الصوت
-        await client.publish(localTracks.audioTrack);
-        
-        document.getElementById('mic-btn').classList.add('mic-active');
-        console.log("✅ تم تفعيل الصوت وبدء البث");
-
-        // الاستماع للمشاركين الآخرين (مهم جداً أن تكون خارج شرط الاتصال لتلتقط أي شخص يدخل)
-        client.on("user-published", async (user, mediaType) => {
-            await client.subscribe(user, mediaType);
-            if (mediaType === "audio") {
-                user.audioTrack.play();
-                console.log("🔊 تسمع صوت صديقك الآن");
+    } else {
+        // --- مرحلة الإيقاف ---
+        try {
+            // إغلاق المايك الخاص بي
+            if (localTracks.audioTrack) {
+                localTracks.audioTrack.stop();
+                localTracks.audioTrack.close();
+                localTracks.audioTrack = null;
             }
-        });
-
-    } catch (error) {
-        console.error("❌ فشل تشغيل الصوت:", error);
-        if (error.code === "CAN_NOT_GET_GATEWAY_SERVER") {
-            alert("مشكلة في الاتصال بسيرفر Agora، تأكد من جودة الإنترنت");
+            
+            // مغادرة القناة
+            await client.leave();
+            
+            // تحديث الشكل
+            micBtn.innerText = "🔇";
+            micBtn.classList.remove('mic-active');
+            isMicOn = false;
+            console.log("تم إيقاف المايك ❌");
+            
+        } catch (error) {
+            console.error("فشل الإيقاف:", error);
         }
     }
 }
