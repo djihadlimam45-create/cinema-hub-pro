@@ -1,125 +1,122 @@
-const express = require("express");
-const http = require("http");
-const { Server } = require("socket.io");
+const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
+const path = require('path');
+
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-app.use(express.static("public"));
+// توجيه الملفات الثابتة (HTML, CSS, JS)
+app.use(express.static(path.join(__dirname, 'public')));
 
-// تخزين بيانات الغرف والمعرفات
+// تخزين بيانات الغرف والمستخدمين
+// الهيكل: { roomId: { users: [], agoraMap: {} } }
 const rooms = {};
-let agoraMap = {}; // جسر الربط: UID (الصوت) -> Socket ID (المستخدم)
 
-io.on("connection", (socket) => {
-    console.log("مستخدم متصل جديد:", socket.id);
+io.on('connection', (socket) => {
+    console.log('مستخدم جديد متصل:', socket.id);
 
-    socket.on("join-room", ({ roomId, password, user }) => {
-        // التحقق من كلمة المرور
-        if (rooms[roomId] && rooms[roomId].password !== password) {
-            return socket.emit("error-msg", "كلمة المرور خاطئة!");
-        }
-
-        socket.join(roomId);
-        // حفظ بيانات المستخدم في السوكيت الحالي
-        socket.userData = { ...user, roomId, id: socket.id };
-
+    // 1. الانضمام لغرفة
+    socket.on('join-room', ({ roomId, password, user }) => {
         // إنشاء الغرفة إذا لم تكن موجودة
         if (!rooms[roomId]) {
-            rooms[roomId] = { password: password, users: [], currentVideo: "" };
+            rooms[roomId] = {
+                password: password,
+                users: [],
+                agoraMap: {} // لربط Agora UID بـ Socket ID
+            };
         }
 
-        // إضافة المستخدم لقائمة الغرفة
-        rooms[roomId].users.push(socket.userData);
-        
-        socket.emit("join-success");
-        
-        // إبلاغ الجميع بتحديث القائمة (لرسم الأفاتارات)
-        io.to(roomId).emit("update-users", rooms[roomId].users);
-        
-        // مزامنة الفيديو الحالي للمنضم الجديد
-        if(rooms[roomId].currentVideo) {
-            socket.emit("video-changed", rooms[roomId].currentVideo);
+        // التحقق من كلمة المرور
+        if (rooms[roomId].password !== password) {
+            return socket.emit('error-msg', 'كلمة المرور غير صحيحة!');
         }
 
-        // إرسال خريطة الربط الصوتية المحدثة
-        io.to(roomId).emit("update-agora-map", agoraMap);
+        // إضافة المستخدم للغرفة
+        socket.join(roomId);
+        const userData = { ...user, id: socket.id };
+        rooms[roomId].users.push(userData);
+
+        // حفظ بيانات الغرفة في الـ socket للرجوع إليها لاحقاً
+        socket.roomId = roomId;
+
+        // إرسال تأكيد الدخول وتحديث القائمة للجميع
+        socket.emit('join-success');
+        io.to(roomId).emit('update-users', rooms[roomId].users);
+        io.to(roomId).emit('update-agora-map', rooms[roomId].agoraMap);
     });
 
-    // --- أهم جزء: ربط معرف الصوت بمعرف السوكيت ---
-    socket.on("map-agora-id", ({ uid }) => {
-        const roomId = socket.userData?.roomId;
+    // 2. ربط معرف Agora (UID) بمعرف السوكيت (Socket ID)
+    // هذا الجزء هو المسؤول عن جعل الأفاتار "يتوهج" عند الكلام
+    socket.on('map-agora-id', ({ uid }) => {
+        const roomId = socket.roomId;
+        if (roomId && rooms[roomId]) {
+            rooms[roomId].agoraMap[uid] = socket.id;
+            io.to(roomId).emit('update-agora-map', rooms[roomId].agoraMap);
+        }
+    });
+
+    // 3. مزامنة الفيديو (تغيير الفيلم)
+    socket.on('change-video', (url) => {
+        const roomId = socket.roomId;
         if (roomId) {
-            agoraMap[uid] = socket.id; // ربط الـ UID بـ Socket ID
-            // نرسل الخريطة المحدثة للجميع ليتمكنوا من معرفة من يتحدث
-            io.to(roomId).emit("update-agora-map", agoraMap);
+            io.to(roomId).emit('video-changed', url);
         }
     });
 
-    // تغيير الفيديو
-    socket.on("change-video", (url) => {
-        const roomId = socket.userData?.roomId;
+    // 4. مزامنة التحكم (تشغيل/إيقاف/تقديم)
+    socket.on('video-control', (data) => {
+        const roomId = socket.roomId;
         if (roomId) {
-            rooms[roomId].currentVideo = url;
-            io.to(roomId).emit("video-changed", url);
+            // نرسل التحكم للجميع ما عدا الشخص الذي أرسل الأمر لتجنب التعليق
+            socket.to(roomId).emit('video-sync', data);
         }
     });
 
-    // التحكم في المزامنة (Play/Pause/Seek)
-    socket.on("video-control", (data) => {
-        const roomId = socket.userData?.roomId;
+    // 5. الشات والتفاعلات
+    socket.on('chat-msg', (text) => {
+        const roomId = socket.roomId;
+        const user = rooms[roomId]?.users.find(u => u.id === socket.id);
+        if (roomId && user) {
+            io.to(roomId).emit('chat-msg', { text, user });
+        }
+    });
+
+    socket.on('reaction', (emoji) => {
+        const roomId = socket.roomId;
         if (roomId) {
-            socket.to(roomId).emit("video-sync", data);
+            io.to(roomId).emit('reaction', { emoji, id: socket.id });
         }
     });
 
-    // رسائل الشات
-    socket.on("chat-msg", (text) => {
-        const roomId = socket.userData?.roomId;
-        if (roomId) {
-            io.to(roomId).emit("chat-msg", { text, user: socket.userData });
-        }
-    });
-
-    // التفاعلات (Emoji)
-    socket.on("reaction", (emoji) => {
-        const roomId = socket.userData?.roomId;
-        if (roomId) {
-            io.to(roomId).emit("reaction", { emoji, userId: socket.id });
-        }
-    });
-
-    // عند الخروج
-    socket.on("disconnect", () => {
-        const roomId = socket.userData?.roomId;
-        if (rooms[roomId]) {
-            // حذف المستخدم من القائمة
+    // 6. التعامل مع قطع الاتصال
+    socket.on('disconnect', () => {
+        const roomId = socket.roomId;
+        if (roomId && rooms[roomId]) {
+            // إزالة المستخدم من القائمة
             rooms[roomId].users = rooms[roomId].users.filter(u => u.id !== socket.id);
-            io.to(roomId).emit("update-users", rooms[roomId].users);
             
-            // تنظيف خريطة الربط الصوتية
-            for (let uid in agoraMap) {
-                if (agoraMap[uid] === socket.id) {
-                    delete agoraMap[uid];
+            // إزالة الربط الخاص بـ Agora
+            for (let uid in rooms[roomId].agoraMap) {
+                if (rooms[roomId].agoraMap[uid] === socket.id) {
+                    delete rooms[roomId].agoraMap[uid];
                 }
             }
-            io.to(roomId).emit("update-agora-map", agoraMap);
+
+            io.to(roomId).emit('update-users', rooms[roomId].users);
+            io.to(roomId).emit('update-agora-map', rooms[roomId].agoraMap);
+
+            // حذف الغرفة إذا أصبحت فارغة تماماً
+            if (rooms[roomId].users.length === 0) {
+                delete rooms[roomId];
+            }
         }
-        console.log("مستخدم غادر:", socket.id);
+        console.log('انقطع اتصال مستخدم:', socket.id);
     });
-
-    client.on("user-published", async (user, mediaType) => {
-    // الاشتراك في المسار القادم من الشخص الآخر
-    await client.subscribe(user, mediaType);
-    console.log("تم الاشتراك في ميديا المستخدم:", user.uid);
-
-    if (mediaType === "audio") {
-        // تشغيل الصوت فوراً
-        user.audioTrack.play();
-        console.log("صوت الصديق يعمل الآن...");
-    }
-});
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`🚀 السيرفر يعمل على: http://localhost:${PORT}`));
+server.listen(PORT, () => {
+    console.log(`السيرفر يعمل على الرابط: http://localhost:${PORT}`);
+});
