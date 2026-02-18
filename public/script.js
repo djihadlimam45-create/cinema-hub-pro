@@ -248,6 +248,25 @@ async function toggleMic() {
 
             // تفعيل المايك (Unmute)
             await localAudioTrack.setEnabled(true); 
+
+            // تفعيل مراقب الصوت
+client.enableAudioVolumeIndicator();
+
+client.on("volume-indicator", volumes => {
+    volumes.forEach((volume) => {
+        // إذا كان الشخص المتحدث هو "أنا" (المستخدم المحلي)
+        if (volume.level > 50) {
+            // إضافة التوهج للأفاتار الخاص بي
+            document.getElementById('local-user').classList.add('speaking');
+        } else {
+            // إزالة التوهج عند الصمت
+            document.getElementById('local-user').classList.remove('speaking');
+        }
+        
+        // ملاحظة: للآخرين، سنحتاج لاستخدام id="avatar-${volume.uid}" 
+        // عندما نقوم ببرمجة ظهور صورهم لاحقاً
+    });
+});
             
             isMicOn = true;
             micBtn.innerHTML = "🎤"; 
