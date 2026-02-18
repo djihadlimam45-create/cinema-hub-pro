@@ -45,20 +45,22 @@ function join() {
     const name = document.getElementById('username').value;
     const room = document.getElementById('room-id').value;
     const pass = document.getElementById('room-pass').value;
-
     if(!name || !room || !pass) return alert("أكمل البيانات!");
-
     currentUser.name = name;
     currentUser.avatar = currentUser.avatar || document.getElementById('preview').src;
-
-    // إيقاظ محرك الصوت للمتصفح
+    socket.emit("join-room", { roomId: room, password: pass, user: currentUser });
+    {
+    // إيقاظ محرك الصوت (حل سحري لمشاكل المتصفحات)
     if (AgoraRTC.getAudioContext) {
         AgoraRTC.getAudioContext().resume().then(() => {
-            console.log("Audio Context Resumed");
+            console.log("تم تفعيل محرك الصوت بنجاح");
         });
     }
-
-    socket.emit("join-room", { roomId: room, password: pass, user: currentUser });
+    
+    // بقية كود الدخول الخاص بك...
+    const name = document.getElementById('username').value;
+    // ... إلخ
+}
 }
 
 socket.on("join-success", () => {
@@ -69,8 +71,11 @@ socket.on("join-success", () => {
 
 // --- 3. نظام المزامنة والظهور (Socket.io) ---
 
+// استقبال قائمة المستخدمين ورسمهم جميعاً
 socket.on("update-users", users => {
     const userList = document.getElementById('user-list');
+    
+    // إعادة بناء القائمة: نبدأ بـ "أنت"
     userList.innerHTML = `
         <div class="avatar-container" id="local-user">
             <img src="${currentUser.avatar}" class="avatar-img" id="current-avatar">
@@ -78,11 +83,12 @@ socket.on("update-users", users => {
         </div>
     `;
 
+    // إضافة الآخرين
     users.forEach(user => {
         if (user.id !== socket.id) {
             const div = document.createElement('div');
             div.className = 'avatar-container';
-            div.id = `user-${user.id}`;
+            div.id = `user-${user.id}`; // المعرف المستخدم للتوهج
             div.innerHTML = `
                 <img src="${user.avatar}" class="avatar-img">
                 <div class="user-name">${user.name}</div>
@@ -92,8 +98,10 @@ socket.on("update-users", users => {
     });
 });
 
+// استقبال خريطة الربط للتوهج
 socket.on("update-agora-map", map => {
     agoraToSocketMap = map;
+    console.log("خريطة المستخدمين المحدثة:", map);
 });
 
 // --- 4. نظام الصوت (Agora) وتوهج الأفاتار ---
@@ -103,6 +111,7 @@ client.enableAudioVolumeIndicator();
 client.on("volume-indicator", volumes => {
     volumes.forEach((volume) => {
         let elementId = "";
+        
         if (volume.uid === 0 || volume.uid === client.uid) {
             elementId = 'local-user';
         } else {
@@ -119,41 +128,73 @@ client.on("volume-indicator", volumes => {
 });
 
 client.on("user-published", async (user, mediaType) => {
+    // الاشتراك في المسار القادم من الشخص الآخر
     await client.subscribe(user, mediaType);
+    console.log("تم الاشتراك في ميديا المستخدم:", user.uid);
+
     if (mediaType === "audio") {
+        // تشغيل الصوت فوراً
         user.audioTrack.play();
+        console.log("صوت الصديق يعمل الآن...");
     }
 });
-
 async function toggleMic() {
     const micBtn = document.getElementById('mic-btn');
+    
     try {
+        // 1. إذا لم يكن هناك مسار صوتي أصلاً، نقوم بإنشائه
         if (!localAudioTrack) {
             localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
         }
 
         if (!isMicOn) {
+            // --- مرحلة التشغيل ---
+            
+            // تأكد من الاتصال بـ Agora أولاً
             if (client.connectionState === "DISCONNECTED") {
                 const uid = await client.join(APP_ID, CHANNEL, null, null);
                 socket.emit("map-agora-id", { uid: uid });
             }
+
+            // الحل السحري: تفعيل المسار يدوياً قبل النشر لمنع خطأ TRACK_IS_DISABLED
             await localAudioTrack.setEnabled(true);
+
+            // نشر المسار إذا لم يكن منضوراً بالفعل
             if (client.localTracks.length === 0) {
                 await client.publish(localAudioTrack);
             }
+
             isMicOn = true;
             micBtn.classList.add('mic-active');
             micBtn.innerHTML = "🎤";
+            console.log("المايك يعمل الآن بنجاح ✅");
+
         } else {
+            // --- مرحلة الإيقاف ---
+            
+            // تعطيل المسار بدلاً من حذفه تماماً لسهولة إعادة التشغيل
             await localAudioTrack.setEnabled(false);
+            
             isMicOn = false;
             micBtn.classList.remove('mic-active');
             micBtn.innerHTML = "🔇";
+            
+            // إزالة تأثير التوهج محلياً
             const me = document.getElementById('local-user');
             if (me) me.classList.remove('speaking');
+            
+            console.log("تم إيقاف المايك مؤقتاً 🔇");
         }
     } catch (error) {
-        console.error("Mic Error:", error);
+        console.error("خطأ في نظام المايك:", error);
+        // في حال حدوث خطأ حرج، يفضل تصفير المسار لإعادة المحاولة من الصفر
+        if (localAudioTrack) {
+            await localAudioTrack.close();
+            localAudioTrack = null;
+        }
+        isMicOn = false;
+        micBtn.classList.remove('mic-active');
+        micBtn.innerHTML = "🔇";
     }
 }
 
@@ -210,9 +251,9 @@ function handleSource(url) {
 
 socket.on("video-changed", url => handleSource(url));
 
+// المزامنة
 videoElement.onplay = () => socket.emit("video-control", { type: 'play', time: videoElement.currentTime });
 videoElement.onpause = () => socket.emit("video-control", { type: 'pause', time: videoElement.currentTime });
-
 socket.on("video-sync", data => {
     if (videoElement.style.display !== "none") {
         if (data.type === 'play') videoElement.play();
@@ -230,7 +271,6 @@ function playDirectUrl() {
 
 function sendEmoji(e) { socket.emit("reaction", e); showEmoji(e); }
 socket.on("reaction", d => showEmoji(d.emoji));
-
 function showEmoji(e) {
     const div = document.createElement('div');
     div.className = "floating-emoji"; div.innerText = e;
@@ -244,7 +284,6 @@ document.getElementById('chatInput').onkeypress = (e) => {
         socket.emit("chat-msg", e.target.value); e.target.value = "";
     }
 };
-
 socket.on("chat-msg", d => {
     const msg = document.getElementById('messages');
     msg.innerHTML += `<div class="msg"><img src="${d.user.avatar}"><div class="msg-body"><b>${d.user.name}</b><div class="msg-content">${d.text}</div></div></div>`;
@@ -252,8 +291,7 @@ socket.on("chat-msg", d => {
 });
 
 function copyInviteLink() {
-    const roomId = document.getElementById('room-id').value || 'main';
-    const inviteUrl = `${window.location.origin}?room=${roomId}`;
+    const inviteUrl = `${window.location.origin}?room=${document.getElementById('room-id').value || 'main'}`;
     navigator.clipboard.writeText(inviteUrl).then(() => alert("تم نسخ رابط الدعوة! ✅"));
 }
 
@@ -265,20 +303,24 @@ function initYT(id) {
     });
 }
 
-// --- 7. وظائف الصفحة الرئيسية (رابط الدعوة والبوسترات) ---
-
+// دالة لقراءة المعطيات من الرابط
 function checkInviteLink() {
     const urlParams = new URLSearchParams(window.location.search);
     const roomIdFromUrl = urlParams.get('room');
+    
     if (roomIdFromUrl) {
         const roomInput = document.getElementById('room-id');
-        if (roomInput) roomInput.value = roomIdFromUrl;
+        if (roomInput) {
+            roomInput.value = roomIdFromUrl;
+            // اختيارياً: يمكنك تغيير لون الحقل ليعرف المستخدم أنه دخل عبر رابط
+            roomInput.style.borderColor = "var(--primary)";
+        }
     }
 }
 
+// دالة توليد البوسترات العائمة (لصفحة الدخول)
 function createFloatingPosters() {
     const bg = document.getElementById('posters-bg');
-    if(!bg) return;
     const posterImages = [
         "https://image.tmdb.org/t/p/w200/q6y0Go1tsYKoBbtA2ST9czzR7t5.jpg",
         "https://image.tmdb.org/t/p/w200/8Gxv2mYqlLzbq9hfOBY9S9NrVwo.jpg",
@@ -291,12 +333,13 @@ function createFloatingPosters() {
         img.src = posterImages[Math.floor(Math.random() * posterImages.length)];
         img.className = 'floating-poster';
         img.style.left = Math.random() * 90 + '%';
-        img.style.animationDelay = Math.random() * 10 + 's';
+        img.style.animationDelay = Math.random() * 20 + 's';
         img.style.animationDuration = (15 + Math.random() * 15) + 's';
         bg.appendChild(img);
     }
 }
 
+// تشغيل الوظائف عند تحميل الصفحة
 window.addEventListener('load', () => {
     checkInviteLink();
     createFloatingPosters();
