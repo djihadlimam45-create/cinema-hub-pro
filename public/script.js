@@ -222,10 +222,29 @@ let isMicOn = false;
 // 2. الجزء السحري: الاستماع لصوت الآخرين (بدونه لن تسمع أحداً)
 client.on("user-published", async (user, mediaType) => {
     await client.subscribe(user, mediaType);
+
     if (mediaType === "audio") {
-        user.audioTrack.play(); // هذا ما يجعلك تسمع الطرف الآخر
-        console.log("🔊 صوت الطرف الآخر يعمل الآن");
+        user.audioTrack.play();
+        
+        // إنشاء أفاتار للشخص الجديد إذا لم يكن موجوداً
+        if (!document.getElementById(`user-${user.uid}`)) {
+            const userList = document.getElementById('user-list');
+            const newUserDiv = document.createElement('div');
+            newUserDiv.id = `user-${user.uid}`; // نعطيه ID فريد برقم الـ UID الخاص به
+            newUserDiv.className = 'avatar-container';
+            newUserDiv.innerHTML = `
+                <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=${user.uid}" class="avatar-img">
+                <div class="user-name">صديق</div>
+            `;
+            userList.appendChild(newUserDiv);
+        }
     }
+});
+
+// إزالة الأفاتار عند خروج الشخص
+client.on("user-left", (user) => {
+    const remoteUserDiv = document.getElementById(`user-${user.uid}`);
+    if (remoteUserDiv) remoteUserDiv.remove();
 });
 
 // 3. دالة التحكم في المايك (تشغيل وإيقاف)
@@ -254,17 +273,24 @@ client.enableAudioVolumeIndicator();
 
 client.on("volume-indicator", volumes => {
     volumes.forEach((volume) => {
-        // إذا كان الشخص المتحدث هو "أنا" (المستخدم المحلي)
-        if (volume.level > 50) {
-            // إضافة التوهج للأفاتار الخاص بي
-            document.getElementById('local-user').classList.add('speaking');
-        } else {
-            // إزالة التوهج عند الصمت
-            document.getElementById('local-user').classList.remove('speaking');
-        }
+        let avatarId;
         
-        // ملاحظة: للآخرين، سنحتاج لاستخدام id="avatar-${volume.uid}" 
-        // عندما نقوم ببرمجة ظهور صورهم لاحقاً
+        // إذا كان الـ UID هو 0 أو يطابق الـ UID الخاص بك، فهو "أنت"
+        if (volume.uid === 0 || volume.uid === client.uid) {
+            avatarId = 'local-user';
+        } else {
+            // وإلا فهو أحد الأصدقاء
+            avatarId = `user-${volume.uid}`;
+        }
+
+        const avatarElement = document.getElementById(avatarId);
+        if (avatarElement) {
+            if (volume.level > 50) {
+                avatarElement.classList.add('speaking');
+            } else {
+                avatarElement.classList.remove('speaking');
+            }
+        }
     });
 });
             
