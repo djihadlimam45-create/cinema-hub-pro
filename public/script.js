@@ -12,6 +12,8 @@ let ytPlayer;
 let isYtReady = false;
 let hls = null;
 const videoElement = document.getElementById('video');
+
+// جسر الربط: يربط رقم الصوت (UID) بمعرف المستخدم (Socket ID)
 let agoraToSocketMap = {}; 
 
 // --- 2. نظام الأفاتارات وتجهيز الدخول ---
@@ -47,6 +49,18 @@ function join() {
     currentUser.name = name;
     currentUser.avatar = currentUser.avatar || document.getElementById('preview').src;
     socket.emit("join-room", { roomId: room, password: pass, user: currentUser });
+    {
+    // إيقاظ محرك الصوت (حل سحري لمشاكل المتصفحات)
+    if (AgoraRTC.getAudioContext) {
+        AgoraRTC.getAudioContext().resume().then(() => {
+            console.log("تم تفعيل محرك الصوت بنجاح");
+        });
+    }
+    
+    // بقية كود الدخول الخاص بك...
+    const name = document.getElementById('username').value;
+    // ... إلخ
+}
 }
 
 socket.on("join-success", () => {
@@ -56,8 +70,12 @@ socket.on("join-success", () => {
 });
 
 // --- 3. نظام المزامنة والظهور (Socket.io) ---
+
+// استقبال قائمة المستخدمين ورسمهم جميعاً
 socket.on("update-users", users => {
     const userList = document.getElementById('user-list');
+    
+    // إعادة بناء القائمة: نبدأ بـ "أنت"
     userList.innerHTML = `
         <div class="avatar-container" id="local-user">
             <img src="${currentUser.avatar}" class="avatar-img" id="current-avatar">
@@ -65,11 +83,12 @@ socket.on("update-users", users => {
         </div>
     `;
 
+    // إضافة الآخرين
     users.forEach(user => {
         if (user.id !== socket.id) {
             const div = document.createElement('div');
             div.className = 'avatar-container';
-            div.id = `user-${user.id}`;
+            div.id = `user-${user.id}`; // المعرف المستخدم للتوهج
             div.innerHTML = `
                 <img src="${user.avatar}" class="avatar-img">
                 <div class="user-name">${user.name}</div>
@@ -79,98 +98,124 @@ socket.on("update-users", users => {
     });
 });
 
+// استقبال خريطة الربط للتوهج
 socket.on("update-agora-map", map => {
     agoraToSocketMap = map;
+    console.log("خريطة المستخدمين المحدثة:", map);
 });
 
 // --- 4. نظام الصوت (Agora) وتوهج الأفاتار ---
+
 client.enableAudioVolumeIndicator();
 
 client.on("volume-indicator", volumes => {
     volumes.forEach((volume) => {
         let elementId = "";
+        
         if (volume.uid === 0 || volume.uid === client.uid) {
             elementId = 'local-user';
         } else {
             const socketId = agoraToSocketMap[volume.uid];
             if (socketId) elementId = `user-${socketId}`;
         }
+
         const el = document.getElementById(elementId);
         if (el) {
-            if (volume.level > 30) el.classList.add('speaking');
+            if (volume.level > 40) el.classList.add('speaking');
             else el.classList.remove('speaking');
         }
     });
 });
 
-// [إصلاح] استقبال الصوت تلقائياً مع معالجة سياسة التشغيل التلقائي للمتصفح
 client.on("user-published", async (user, mediaType) => {
+    // الاشتراك في المسار القادم من الشخص الآخر
     await client.subscribe(user, mediaType);
+    console.log("تم الاشتراك في ميديا المستخدم:", user.uid);
+
     if (mediaType === "audio") {
-        user.audioTrack.play().catch(e => {
-            console.log("المتصفح يطلب تفاعلاً لتشغيل الصوت القادم.");
-        });
+        // تشغيل الصوت فوراً
+        user.audioTrack.play();
+        console.log("صوت الصديق يعمل الآن...");
     }
 });
-
 async function toggleMic() {
     const micBtn = document.getElementById('mic-btn');
     
     try {
-        // [إصلاح] طلب الصلاحية أولاً بشكل مستقل
+        // 1. إذا لم يكن هناك مسار صوتي أصلاً، نقوم بإنشائه
         if (!localAudioTrack) {
-            localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack({
-                ANS: true, AEC: true
-            });
-        }
-
-        // الانضمام لـ Agora إذا لم نكن متصلين
-        if (client.connectionState === "DISCONNECTED") {
-            const uid = await client.join(APP_ID, CHANNEL, null, null);
-            socket.emit("map-agora-id", { uid: uid });
+            localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
         }
 
         if (!isMicOn) {
-            await client.publish(localAudioTrack);
+            // --- مرحلة التشغيل ---
+            
+            // تأكد من الاتصال بـ Agora أولاً
+            if (client.connectionState === "DISCONNECTED") {
+                const uid = await client.join(APP_ID, CHANNEL, null, null);
+                socket.emit("map-agora-id", { uid: uid });
+            }
+
+            // الحل السحري: تفعيل المسار يدوياً قبل النشر لمنع خطأ TRACK_IS_DISABLED
             await localAudioTrack.setEnabled(true);
+
+            // نشر المسار إذا لم يكن منضوراً بالفعل
+            if (client.localTracks.length === 0) {
+                await client.publish(localAudioTrack);
+            }
+
             isMicOn = true;
             micBtn.classList.add('mic-active');
-            micBtn.innerHTML = "🎤"; 
+            micBtn.innerHTML = "🎤";
+            console.log("المايك يعمل الآن بنجاح ✅");
+
         } else {
+            // --- مرحلة الإيقاف ---
+            
+            // تعطيل المسار بدلاً من حذفه تماماً لسهولة إعادة التشغيل
             await localAudioTrack.setEnabled(false);
-            await client.unpublish(localAudioTrack);
+            
             isMicOn = false;
             micBtn.classList.remove('mic-active');
             micBtn.innerHTML = "🔇";
-            document.getElementById('local-user').classList.remove('speaking');
+            
+            // إزالة تأثير التوهج محلياً
+            const me = document.getElementById('local-user');
+            if (me) me.classList.remove('speaking');
+            
+            console.log("تم إيقاف المايك مؤقتاً 🔇");
         }
     } catch (error) {
-        console.error("خطأ في المايكروفون:", error);
-        alert("يرجى الضغط على علامة القفل بجانب رابط الموقع وتفعيل المايكروفون (Allow).");
+        console.error("خطأ في نظام المايك:", error);
+        // في حال حدوث خطأ حرج، يفضل تصفير المسار لإعادة المحاولة من الصفر
+        if (localAudioTrack) {
+            await localAudioTrack.close();
+            localAudioTrack = null;
+        }
+        isMicOn = false;
+        micBtn.classList.remove('mic-active');
+        micBtn.innerHTML = "🔇";
     }
 }
 
 // --- 5. البحث وتشغيل الأفلام والمزامنة ---
+
 document.getElementById('movieSearch').oninput = async (e) => {
     const query = e.target.value;
-    const resDiv = document.getElementById('searchResults');
-    if(query.length < 3) {
-        resDiv.style.display = "none";
-        return;
-    }
+    if(query.length < 3) return;
     const res = await fetch(`https://api.themoviedb.org/3/search/multi?api_key=${TMDB_KEY}&query=${query}&language=ar-SA`);
     const data = await res.json();
+    const resDiv = document.getElementById('searchResults');
     resDiv.innerHTML = "";
     data.results.slice(0,6).forEach(m => {
         const div = document.createElement('div');
         div.className = "search-item";
-        div.innerHTML = `<img src="https://image.tmdb.org/t/p/w92${m.poster_path || ''}"> <span>${m.title || m.name}</span>`;
+        div.innerHTML = `<img src="https://image.tmdb.org/t/p/w92${m.poster_path}"> <span>${m.title || m.name}</span>`;
         div.onclick = () => {
             const type = m.media_type === 'movie' ? 'movie' : 'tv';
             const url = `https://vidsrc.me/embed/${type}?tmdb=${m.id}`;
             socket.emit("change-video", url);
-            resDiv.style.display = "none"; 
-            document.getElementById('movieSearch').value = ""; 
+            resDiv.style.display = "none";
         };
         resDiv.appendChild(div);
     });
@@ -206,19 +251,14 @@ function handleSource(url) {
 
 socket.on("video-changed", url => handleSource(url));
 
-// [إصلاح المزامنة]
+// المزامنة
 videoElement.onplay = () => socket.emit("video-control", { type: 'play', time: videoElement.currentTime });
 videoElement.onpause = () => socket.emit("video-control", { type: 'pause', time: videoElement.currentTime });
-
 socket.on("video-sync", data => {
     if (videoElement.style.display !== "none") {
-        if (data.type === 'play' && videoElement.paused) videoElement.play();
-        if (data.type === 'pause' && !videoElement.paused) videoElement.pause();
-        
-        // عتبة زمنية لمنع التقطيع
-        if (Math.abs(videoElement.currentTime - data.time) > 2.5) {
-            videoElement.currentTime = data.time;
-        }
+        if (data.type === 'play') videoElement.play();
+        if (data.type === 'pause') videoElement.pause();
+        if (Math.abs(videoElement.currentTime - data.time) > 2) videoElement.currentTime = data.time;
     }
 });
 
@@ -228,6 +268,7 @@ function playDirectUrl() {
 }
 
 // --- 6. الشات والتفاعلات ---
+
 function sendEmoji(e) { socket.emit("reaction", e); showEmoji(e); }
 socket.on("reaction", d => showEmoji(d.emoji));
 function showEmoji(e) {
