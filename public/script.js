@@ -122,40 +122,60 @@ client.on("user-published", async (user, mediaType) => {
 async function toggleMic() {
     const micBtn = document.getElementById('mic-btn');
     
-    // طلب الإذن من المتصفح أولاً
-    if (!localAudioTrack) {
-        try {
+    try {
+        // 1. إذا لم يكن هناك مسار صوتي أصلاً، نقوم بإنشائه
+        if (!localAudioTrack) {
             localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
-        } catch (e) {
-            alert("يرجى السماح بالوصول للميكروفون من إعدادات المتصفح");
-            return;
         }
-    }
 
-    if (!isMicOn) {
-        try {
-            // التأكد من الاتصال بالغرفة
+        if (!isMicOn) {
+            // --- مرحلة التشغيل ---
+            
+            // تأكد من الاتصال بـ Agora أولاً
             if (client.connectionState === "DISCONNECTED") {
                 const uid = await client.join(APP_ID, CHANNEL, null, null);
                 socket.emit("map-agora-id", { uid: uid });
             }
-            
-            await client.publish(localAudioTrack);
+
+            // الحل السحري: تفعيل المسار يدوياً قبل النشر لمنع خطأ TRACK_IS_DISABLED
             await localAudioTrack.setEnabled(true);
-            
+
+            // نشر المسار إذا لم يكن منضوراً بالفعل
+            if (client.localTracks.length === 0) {
+                await client.publish(localAudioTrack);
+            }
+
             isMicOn = true;
             micBtn.classList.add('mic-active');
-            micBtn.innerHTML = "🎤"; 
-        } catch (error) {
-            console.error("خطأ في تفعيل المايك:", error);
+            micBtn.innerHTML = "🎤";
+            console.log("المايك يعمل الآن بنجاح ✅");
+
+        } else {
+            // --- مرحلة الإيقاف ---
+            
+            // تعطيل المسار بدلاً من حذفه تماماً لسهولة إعادة التشغيل
+            await localAudioTrack.setEnabled(false);
+            
+            isMicOn = false;
+            micBtn.classList.remove('mic-active');
+            micBtn.innerHTML = "🔇";
+            
+            // إزالة تأثير التوهج محلياً
+            const me = document.getElementById('local-user');
+            if (me) me.classList.remove('speaking');
+            
+            console.log("تم إيقاف المايك مؤقتاً 🔇");
         }
-    } else {
-        await localAudioTrack.setEnabled(false);
-        await client.unpublish(localAudioTrack);
+    } catch (error) {
+        console.error("خطأ في نظام المايك:", error);
+        // في حال حدوث خطأ حرج، يفضل تصفير المسار لإعادة المحاولة من الصفر
+        if (localAudioTrack) {
+            await localAudioTrack.close();
+            localAudioTrack = null;
+        }
         isMicOn = false;
         micBtn.classList.remove('mic-active');
         micBtn.innerHTML = "🔇";
-        document.getElementById('local-user').classList.remove('speaking');
     }
 }
 
