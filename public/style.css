@@ -617,17 +617,15 @@ aside {
 }
 
 /* حاوية الخلفية لصفحة الدخول فقط */
-
-
-.floating-poster {
+.login-bg-container {
     position: absolute;
-    width: 120px;
-    border-radius: 10px;
-    opacity: 0.2;
-    filter: grayscale(0.5) blur(1px);
-    animation: floatUp 20s infinite linear;
-    pointer-events: none;
+    inset: 0;
+    overflow: hidden;
+    z-index: -1; /* خلف عناصر الدخول */
+    background: radial-gradient(circle at center, #1a1a1a 0%, #050505 100%);
 }
+
+
 
 @keyframes floatUp {
     0% { transform: translateY(110vh) rotate(0deg); opacity: 0; }
