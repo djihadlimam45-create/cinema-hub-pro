@@ -12,8 +12,6 @@ let ytPlayer;
 let isYtReady = false;
 let hls = null;
 const videoElement = document.getElementById('video');
-
-// جسر الربط: يربط رقم الصوت (UID) بمعرف المستخدم (Socket ID)
 let agoraToSocketMap = {}; 
 
 // --- 2. نظام الأفاتارات وتجهيز الدخول ---
@@ -58,7 +56,6 @@ socket.on("join-success", () => {
 });
 
 // --- 3. نظام المزامنة والظهور (Socket.io) ---
-
 socket.on("update-users", users => {
     const userList = document.getElementById('user-list');
     userList.innerHTML = `
@@ -87,7 +84,6 @@ socket.on("update-agora-map", map => {
 });
 
 // --- 4. نظام الصوت (Agora) وتوهج الأفاتار ---
-
 client.enableAudioVolumeIndicator();
 
 client.on("volume-indicator", volumes => {
@@ -99,23 +95,20 @@ client.on("volume-indicator", volumes => {
             const socketId = agoraToSocketMap[volume.uid];
             if (socketId) elementId = `user-${socketId}`;
         }
-
         const el = document.getElementById(elementId);
         if (el) {
-            if (volume.level > 40) el.classList.add('speaking');
+            if (volume.level > 30) el.classList.add('speaking');
             else el.classList.remove('speaking');
         }
     });
 });
 
-// إصلاح: استقبال المايكروفون من الآخرين تلقائياً
-// تأكد من وجود هذا الحدث لاستقبال صوت الآخرين فور انضمامهم
+// [إصلاح] استقبال الصوت تلقائياً مع معالجة سياسة التشغيل التلقائي للمتصفح
 client.on("user-published", async (user, mediaType) => {
     await client.subscribe(user, mediaType);
     if (mediaType === "audio") {
-        // إنشاء زر وهمي أو طلب تفاعل إذا منع المتصفح الصوت التلقائي
         user.audioTrack.play().catch(e => {
-            console.log("المتصفح يمنع الصوت التلقائي، يرجى النقر على الشاشة");
+            console.log("المتصفح يطلب تفاعلاً لتشغيل الصوت القادم.");
         });
     }
 });
@@ -124,51 +117,40 @@ async function toggleMic() {
     const micBtn = document.getElementById('mic-btn');
     
     try {
-        // 1. طلب الصلاحية وإنشاء المسار الصوتي أولاً
+        // [إصلاح] طلب الصلاحية أولاً بشكل مستقل
         if (!localAudioTrack) {
-            console.log("جارٍ طلب صلاحية المايكروفون...");
             localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack({
-                ANS: true, // إلغاء الضوضاء
-                AEC: true, // إلغاء الصدى
+                ANS: true, AEC: true
             });
-            console.log("تم الحصول على الصلاحية بنجاح.");
         }
 
-        // 2. التحقق من الاتصال بغرفة Agora
+        // الانضمام لـ Agora إذا لم نكن متصلين
         if (client.connectionState === "DISCONNECTED") {
             const uid = await client.join(APP_ID, CHANNEL, null, null);
             socket.emit("map-agora-id", { uid: uid });
         }
 
         if (!isMicOn) {
-            // تفعيل المايك ونشره
-            await localAudioTrack.setEnabled(true);
             await client.publish(localAudioTrack);
-            
+            await localAudioTrack.setEnabled(true);
             isMicOn = true;
             micBtn.classList.add('mic-active');
-            micBtn.style.backgroundColor = "#2ecc71"; // تغيير اللون للأخضر كما في صورتك
             micBtn.innerHTML = "🎤"; 
         } else {
-            // إيقاف المايك وإلغاء النشر
             await localAudioTrack.setEnabled(false);
             await client.unpublish(localAudioTrack);
-            
             isMicOn = false;
             micBtn.classList.remove('mic-active');
-            micBtn.style.backgroundColor = ""; 
             micBtn.innerHTML = "🔇";
             document.getElementById('local-user').classList.remove('speaking');
         }
     } catch (error) {
-        console.error("فشل الوصول للمايكروفون:", error);
-        // ظهور التنبيه الذي رأيته في صورتك
-        alert("يرجى الضغط على أيقونة القفل بجانب رابط الموقع وتفعيل المايكروفون (Allow).");
+        console.error("خطأ في المايكروفون:", error);
+        alert("يرجى الضغط على علامة القفل بجانب رابط الموقع وتفعيل المايكروفون (Allow).");
     }
 }
 
 // --- 5. البحث وتشغيل الأفلام والمزامنة ---
-
 document.getElementById('movieSearch').oninput = async (e) => {
     const query = e.target.value;
     const resDiv = document.getElementById('searchResults');
@@ -187,8 +169,8 @@ document.getElementById('movieSearch').oninput = async (e) => {
             const type = m.media_type === 'movie' ? 'movie' : 'tv';
             const url = `https://vidsrc.me/embed/${type}?tmdb=${m.id}`;
             socket.emit("change-video", url);
-            resDiv.style.display = "none";
-            document.getElementById('movieSearch').value = ""; // تفريغ خانة البحث بعد الاختيار
+            resDiv.style.display = "none"; 
+            document.getElementById('movieSearch').value = ""; 
         };
         resDiv.appendChild(div);
     });
@@ -224,19 +206,17 @@ function handleSource(url) {
 
 socket.on("video-changed", url => handleSource(url));
 
-// تحسين المزامنة: إرسال الحالة
+// [إصلاح المزامنة]
 videoElement.onplay = () => socket.emit("video-control", { type: 'play', time: videoElement.currentTime });
 videoElement.onpause = () => socket.emit("video-control", { type: 'pause', time: videoElement.currentTime });
 
-// تحسين المزامنة: الاستقبال بمنطق العتبة الزمنية
 socket.on("video-sync", data => {
     if (videoElement.style.display !== "none") {
-        if (data.type === 'play') videoElement.play();
-        if (data.type === 'pause') videoElement.pause();
+        if (data.type === 'play' && videoElement.paused) videoElement.play();
+        if (data.type === 'pause' && !videoElement.paused) videoElement.pause();
         
-        // لا نقوم بالقفز الزمني (Seek) إلا إذا كان الفرق أكثر من 2 ثانية لمنع التقطيع
-        const diff = Math.abs(videoElement.currentTime - data.time);
-        if (diff > 2) {
+        // عتبة زمنية لمنع التقطيع
+        if (Math.abs(videoElement.currentTime - data.time) > 2.5) {
             videoElement.currentTime = data.time;
         }
     }
@@ -248,7 +228,6 @@ function playDirectUrl() {
 }
 
 // --- 6. الشات والتفاعلات ---
-
 function sendEmoji(e) { socket.emit("reaction", e); showEmoji(e); }
 socket.on("reaction", d => showEmoji(d.emoji));
 function showEmoji(e) {
