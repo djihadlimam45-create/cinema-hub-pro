@@ -42,6 +42,12 @@ document.getElementById('avatarInput').onchange = function(e) {
 };
 
 function join() {
+    // إيقاظ محرك الصوت (حل سحري لمشاكل المتصفحات)
+    if (AgoraRTC.getAudioContext) {
+        AgoraRTC.getAudioContext().resume().then(() => {
+            console.log("تم تفعيل محرك الصوت بنجاح");
+        });
+    }
     const name = document.getElementById('username').value;
     const room = document.getElementById('room-id').value;
     const pass = document.getElementById('room-pass').value;
@@ -49,18 +55,6 @@ function join() {
     currentUser.name = name;
     currentUser.avatar = currentUser.avatar || document.getElementById('preview').src;
     socket.emit("join-room", { roomId: room, password: pass, user: currentUser });
-    {
-    // إيقاظ محرك الصوت (حل سحري لمشاكل المتصفحات)
-    if (AgoraRTC.getAudioContext) {
-        AgoraRTC.getAudioContext().resume().then(() => {
-            console.log("تم تفعيل محرك الصوت بنجاح");
-        });
-    }
-    
-    // بقية كود الدخول الخاص بك...
-    const name = document.getElementById('username').value;
-    // ... إلخ
-}
 }
 
 socket.on("join-success", () => {
@@ -101,7 +95,6 @@ socket.on("update-users", users => {
 // استقبال خريطة الربط للتوهج
 socket.on("update-agora-map", map => {
     agoraToSocketMap = map;
-    console.log("خريطة المستخدمين المحدثة:", map);
 });
 
 // --- 4. نظام الصوت (Agora) وتوهج الأفاتار ---
@@ -140,61 +133,28 @@ client.on("user-published", async (user, mediaType) => {
 });
 async function toggleMic() {
     const micBtn = document.getElementById('mic-btn');
-    
-    try {
-        // 1. إذا لم يكن هناك مسار صوتي أصلاً، نقوم بإنشائه
-        if (!localAudioTrack) {
-            localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
-        }
-
-        if (!isMicOn) {
-            // --- مرحلة التشغيل ---
-            
-            // تأكد من الاتصال بـ Agora أولاً
+    if (!isMicOn) {
+        try {
             if (client.connectionState === "DISCONNECTED") {
                 const uid = await client.join(APP_ID, CHANNEL, null, null);
+                // ربط الـ UID بالـ Socket ID في السيرفر
                 socket.emit("map-agora-id", { uid: uid });
             }
-
-            // الحل السحري: تفعيل المسار يدوياً قبل النشر لمنع خطأ TRACK_IS_DISABLED
-            await localAudioTrack.setEnabled(true);
-
-            // نشر المسار إذا لم يكن منضوراً بالفعل
-            if (client.localTracks.length === 0) {
+            if (!localAudioTrack) {
+                localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
                 await client.publish(localAudioTrack);
             }
-
+            await localAudioTrack.setEnabled(true);
             isMicOn = true;
+            micBtn.innerHTML = "🎤"; 
             micBtn.classList.add('mic-active');
-            micBtn.innerHTML = "🎤";
-            console.log("المايك يعمل الآن بنجاح ✅");
-
-        } else {
-            // --- مرحلة الإيقاف ---
-            
-            // تعطيل المسار بدلاً من حذفه تماماً لسهولة إعادة التشغيل
-            await localAudioTrack.setEnabled(false);
-            
-            isMicOn = false;
-            micBtn.classList.remove('mic-active');
-            micBtn.innerHTML = "🔇";
-            
-            // إزالة تأثير التوهج محلياً
-            const me = document.getElementById('local-user');
-            if (me) me.classList.remove('speaking');
-            
-            console.log("تم إيقاف المايك مؤقتاً 🔇");
-        }
-    } catch (error) {
-        console.error("خطأ في نظام المايك:", error);
-        // في حال حدوث خطأ حرج، يفضل تصفير المسار لإعادة المحاولة من الصفر
-        if (localAudioTrack) {
-            await localAudioTrack.close();
-            localAudioTrack = null;
-        }
+        } catch (error) { console.error(error); }
+    } else {
+        if (localAudioTrack) await localAudioTrack.setEnabled(false);
         isMicOn = false;
-        micBtn.classList.remove('mic-active');
         micBtn.innerHTML = "🔇";
+        micBtn.classList.remove('mic-active');
+        document.getElementById('local-user').classList.remove('speaking');
     }
 }
 
@@ -302,4 +262,3 @@ function initYT(id) {
         events: { 'onReady': () => { isYtReady = true; } }
     });
 }
-

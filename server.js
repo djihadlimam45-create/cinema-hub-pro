@@ -107,6 +107,18 @@ io.on("connection", (socket) => {
         }
         console.log("مستخدم غادر:", socket.id);
     });
+
+    client.on("user-published", async (user, mediaType) => {
+    // الاشتراك في المسار القادم من الشخص الآخر
+    await client.subscribe(user, mediaType);
+    console.log("تم الاشتراك في ميديا المستخدم:", user.uid);
+
+    if (mediaType === "audio") {
+        // تشغيل الصوت فوراً
+        user.audioTrack.play();
+        console.log("صوت الصديق يعمل الآن...");
+    }
+});
 });
 
 const PORT = process.env.PORT || 3000;
