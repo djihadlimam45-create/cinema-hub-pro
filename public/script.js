@@ -10,7 +10,7 @@ let currentUser = { name: "", avatar: "" };
 let agoraToSocketMap = {};
 const videoElement = document.getElementById('video');
 
-// --- نظام الأفاتارات ---
+// تهيئة الأفاتارات
 function init() {
     const presets = document.getElementById('avatar-presets');
     for(let i=1; i<=5; i++) {
@@ -48,19 +48,19 @@ socket.on("update-users", users => {
         const div = document.createElement('div');
         div.className = 'avatar-container';
         div.id = `user-${user.id}`;
-        div.innerHTML = `<img src="${user.avatar}" class="avatar-img"><div class="user-name">${user.name}</div>`;
+        div.innerHTML = `<img src="${user.avatar}" class="avatar-img"><div class="user-name" style="font-size:10px; text-align:center;">${user.name}</div>`;
         userList.appendChild(div);
     });
 });
 
 socket.on("update-agora-map", map => agoraToSocketMap = map);
 
-// --- نظام الصوت ---
+// نظام التحدث (توهج الأفاتار)
 client.enableAudioVolumeIndicator();
 client.on("volume-indicator", volumes => {
     volumes.forEach((volume) => {
-        const socketId = agoraToSocketMap[volume.uid] || (volume.uid === client.uid ? socket.id : null);
-        const el = document.getElementById(`user-${socketId}`);
+        let sid = agoraToSocketMap[volume.uid] || (volume.uid === client.uid ? socket.id : null);
+        const el = document.getElementById(`user-${sid}`);
         if (el) {
             if (volume.level > 40) el.classList.add('speaking');
             else el.classList.remove('speaking');
@@ -83,9 +83,10 @@ async function toggleMic() {
     isMicOn = !isMicOn;
     await localAudioTrack.setEnabled(isMicOn);
     document.getElementById('mic-btn').innerHTML = isMicOn ? "🎤" : "🔇";
+    document.getElementById('mic-btn').classList.toggle('mic-active', isMicOn);
 }
 
-// --- نظام الأفلام ---
+// نظام الأفلام والبحث
 document.getElementById('movieSearch').oninput = async (e) => {
     const query = e.target.value;
     if(query.length < 3) return;
@@ -96,6 +97,7 @@ document.getElementById('movieSearch').oninput = async (e) => {
     data.results.slice(0,6).forEach(m => {
         const div = document.createElement('div');
         div.className = "search-item";
+        div.style = "padding:10px; cursor:pointer; border-bottom:1px solid #333;";
         div.innerHTML = `<span>${m.title || m.name}</span>`;
         div.onclick = () => {
             const url = `https://vidsrc.me/embed/${m.media_type === 'movie' ? 'movie' : 'tv'}?tmdb=${m.id}`;
@@ -108,14 +110,23 @@ document.getElementById('movieSearch').oninput = async (e) => {
 };
 
 socket.on("video-changed", url => {
-    const iframeSlot = document.getElementById('iframe-slot');
-    iframeSlot.innerHTML = `<iframe src="${url}" allowfullscreen allow="autoplay" style="width:100%; height:100%; border:none;"></iframe>`;
+    document.getElementById('iframe-slot').innerHTML = `<iframe src="${url}" allowfullscreen allow="autoplay" style="width:100%; height:100%; border:none;"></iframe>`;
 });
 
-// --- الشات ---
+// التفاعلات والشات
+function sendEmoji(e) { socket.emit("reaction", e); showEmoji(e); }
+socket.on("reaction", d => showEmoji(d.emoji));
+function showEmoji(e) {
+    const div = document.createElement('div');
+    div.className = "floating-emoji"; div.innerText = e;
+    div.style.left = (Math.random() * 60 + 20) + "%";
+    document.getElementById('video-wrapper').appendChild(div);
+    setTimeout(() => div.remove(), 2500);
+}
+
 socket.on("chat-msg", d => {
     const msg = document.getElementById('messages');
-    msg.innerHTML += `<div><b>${d.user.name}:</b> ${d.text}</div>`;
+    msg.innerHTML += `<div class="msg"><b>${d.user.name}:</b> ${d.text}</div>`;
     msg.scrollTop = msg.scrollHeight;
 });
 
