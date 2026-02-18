@@ -656,14 +656,19 @@ aside {
 .p4 { left: 85%; animation-duration: 30s; animation-delay: 8s; }
 
 /* تصميم حاوية الأفاتار */
+#user-list {
+    display: flex; /* جعل الأفاتارات تظهر بجانب بعضها */
+    gap: 15px;    /* مسافة بين كل مستخدم والآخر */
+    align-items: center;
+    padding: 10px;
+    flex-wrap: wrap; /* إذا زاد العدد ينزل لسطر جديد */
+}
+
 .avatar-container {
-    position: relative;
-    width: 60px;
-    height: 60px;
-    border-radius: 50%;
-    border: 3px solid transparent;
-    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    padding: 2px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 60px;
 }
 
 .avatar-img {
