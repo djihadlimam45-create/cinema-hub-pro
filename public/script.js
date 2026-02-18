@@ -1,4 +1,3 @@
-// --- 1. التعريفات الأساسية والمتغيرات العالمية ---
 const socket = io();
 const client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
 const TMDB_KEY = "4a71b39887f9b5dd489791402728ab1a";
@@ -8,15 +7,10 @@ const CHANNEL = "main_room";
 let localAudioTrack = null;
 let isMicOn = false;
 let currentUser = { name: "", avatar: "" };
-let ytPlayer;
-let isYtReady = false;
-let hls = null;
+let agoraToSocketMap = {};
 const videoElement = document.getElementById('video');
 
-// جسر الربط: يربط رقم الصوت (UID) بمعرف المستخدم (Socket ID)
-let agoraToSocketMap = {}; 
-
-// --- 2. نظام الأفاتارات وتجهيز الدخول ---
+// --- نظام الأفاتارات ---
 function init() {
     const presets = document.getElementById('avatar-presets');
     for(let i=1; i<=5; i++) {
@@ -32,20 +26,11 @@ function init() {
 }
 init();
 
-document.getElementById('avatarInput').onchange = function(e) {
-    const reader = new FileReader();
-    reader.onload = function() {
-        document.getElementById('preview').src = reader.result;
-        currentUser.avatar = reader.result;
-    };
-    if (e.target.files[0]) reader.readAsDataURL(e.target.files[0]);
-};
-
 function join() {
     const name = document.getElementById('username').value;
     const room = document.getElementById('room-id').value;
     const pass = document.getElementById('room-pass').value;
-    if(!name || !room || !pass) return alert("أكمل البيانات!");
+    if(!name || !room) return alert("أكمل البيانات!");
     currentUser.name = name;
     currentUser.avatar = currentUser.avatar || document.getElementById('preview').src;
     socket.emit("join-room", { roomId: room, password: pass, user: currentUser });
@@ -54,59 +39,28 @@ function join() {
 socket.on("join-success", () => {
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('main-app').style.display = 'flex';
-    document.getElementById('current-avatar').src = currentUser.avatar;
 });
 
-// --- 3. نظام المزامنة والظهور (Socket.io) ---
-
-// استقبال قائمة المستخدمين ورسمهم جميعاً
 socket.on("update-users", users => {
     const userList = document.getElementById('user-list');
-    
-    // إعادة بناء القائمة: نبدأ بـ "أنت"
-    userList.innerHTML = `
-        <div class="avatar-container" id="local-user">
-            <img src="${currentUser.avatar}" class="avatar-img" id="current-avatar">
-            <div class="user-name">أنت (${currentUser.name})</div>
-        </div>
-    `;
-
-    // إضافة الآخرين
+    userList.innerHTML = "";
     users.forEach(user => {
-        if (user.id !== socket.id) {
-            const div = document.createElement('div');
-            div.className = 'avatar-container';
-            div.id = `user-${user.id}`; // المعرف المستخدم للتوهج
-            div.innerHTML = `
-                <img src="${user.avatar}" class="avatar-img">
-                <div class="user-name">${user.name}</div>
-            `;
-            userList.appendChild(div);
-        }
+        const div = document.createElement('div');
+        div.className = 'avatar-container';
+        div.id = `user-${user.id}`;
+        div.innerHTML = `<img src="${user.avatar}" class="avatar-img"><div class="user-name">${user.name}</div>`;
+        userList.appendChild(div);
     });
 });
 
-// استقبال خريطة الربط للتوهج
-socket.on("update-agora-map", map => {
-    agoraToSocketMap = map;
-});
+socket.on("update-agora-map", map => agoraToSocketMap = map);
 
-// --- 4. نظام الصوت (Agora) وتوهج الأفاتار ---
-
+// --- نظام الصوت ---
 client.enableAudioVolumeIndicator();
-
 client.on("volume-indicator", volumes => {
     volumes.forEach((volume) => {
-        let elementId = "";
-        
-        if (volume.uid === 0 || volume.uid === client.uid) {
-            elementId = 'local-user';
-        } else {
-            const socketId = agoraToSocketMap[volume.uid];
-            if (socketId) elementId = `user-${socketId}`;
-        }
-
-        const el = document.getElementById(elementId);
+        const socketId = agoraToSocketMap[volume.uid] || (volume.uid === client.uid ? socket.id : null);
+        const el = document.getElementById(`user-${socketId}`);
         if (el) {
             if (volume.level > 40) el.classList.add('speaking');
             else el.classList.remove('speaking');
@@ -120,34 +74,18 @@ client.on("user-published", async (user, mediaType) => {
 });
 
 async function toggleMic() {
-    const micBtn = document.getElementById('mic-btn');
-    if (!isMicOn) {
-        try {
-            if (client.connectionState === "DISCONNECTED") {
-                const uid = await client.join(APP_ID, CHANNEL, null, null);
-                // ربط الـ UID بالـ Socket ID في السيرفر
-                socket.emit("map-agora-id", { uid: uid });
-            }
-            if (!localAudioTrack) {
-                localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
-                await client.publish(localAudioTrack);
-            }
-            await localAudioTrack.setEnabled(true);
-            isMicOn = true;
-            micBtn.innerHTML = "🎤"; 
-            micBtn.classList.add('mic-active');
-        } catch (error) { console.error(error); }
-    } else {
-        if (localAudioTrack) await localAudioTrack.setEnabled(false);
-        isMicOn = false;
-        micBtn.innerHTML = "🔇";
-        micBtn.classList.remove('mic-active');
-        document.getElementById('local-user').classList.remove('speaking');
+    if (!localAudioTrack) {
+        const uid = await client.join(APP_ID, CHANNEL, null, null);
+        socket.emit("map-agora-id", { uid: uid });
+        localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
+        await client.publish(localAudioTrack);
     }
+    isMicOn = !isMicOn;
+    await localAudioTrack.setEnabled(isMicOn);
+    document.getElementById('mic-btn').innerHTML = isMicOn ? "🎤" : "🔇";
 }
 
-// --- 5. البحث وتشغيل الأفلام والمزامنة ---
-
+// --- نظام الأفلام ---
 document.getElementById('movieSearch').oninput = async (e) => {
     const query = e.target.value;
     if(query.length < 3) return;
@@ -158,10 +96,9 @@ document.getElementById('movieSearch').oninput = async (e) => {
     data.results.slice(0,6).forEach(m => {
         const div = document.createElement('div');
         div.className = "search-item";
-        div.innerHTML = `<img src="https://image.tmdb.org/t/p/w92${m.poster_path}"> <span>${m.title || m.name}</span>`;
+        div.innerHTML = `<span>${m.title || m.name}</span>`;
         div.onclick = () => {
-            const type = m.media_type === 'movie' ? 'movie' : 'tv';
-            const url = `https://vidsrc.me/embed/${type}?tmdb=${m.id}`;
+            const url = `https://vidsrc.me/embed/${m.media_type === 'movie' ? 'movie' : 'tv'}?tmdb=${m.id}`;
             socket.emit("change-video", url);
             resDiv.style.display = "none";
         };
@@ -170,83 +107,21 @@ document.getElementById('movieSearch').oninput = async (e) => {
     resDiv.style.display = "block";
 };
 
-function handleSource(url) {
-    const ytArea = document.getElementById('youtube-player');
+socket.on("video-changed", url => {
     const iframeSlot = document.getElementById('iframe-slot');
-    ytArea.style.display = "none";
-    videoElement.style.display = "none";
-    iframeSlot.innerHTML = "";
-
-    if(url.includes('youtube') || url.includes('youtu.be')) {
-        ytArea.style.display = "block";
-        const id = url.includes('v=') ? url.split('v=')[1].split('&')[0] : url.split('/').pop();
-        if(isYtReady) ytPlayer.loadVideoById(id); else initYT(id);
-    } 
-    else if (url.includes('.m3u8') || url.includes('.mp4')) {
-        videoElement.style.display = "block";
-        if (url.includes('.m3u8')) {
-            if (Hls.isSupported()) {
-                if (hls) hls.destroy();
-                hls = new Hls();
-                hls.loadSource(url); hls.attachMedia(videoElement);
-            }
-        } else { videoElement.src = url; }
-        videoElement.play();
-    } else {
-        iframeSlot.innerHTML = `<iframe src="${url}" allowfullscreen allow="autoplay" style="width:100%; height:100%; border:none;"></iframe>`;
-    }
-}
-
-socket.on("video-changed", url => handleSource(url));
-
-// المزامنة
-videoElement.onplay = () => socket.emit("video-control", { type: 'play', time: videoElement.currentTime });
-videoElement.onpause = () => socket.emit("video-control", { type: 'pause', time: videoElement.currentTime });
-socket.on("video-sync", data => {
-    if (videoElement.style.display !== "none") {
-        if (data.type === 'play') videoElement.play();
-        if (data.type === 'pause') videoElement.pause();
-        if (Math.abs(videoElement.currentTime - data.time) > 2) videoElement.currentTime = data.time;
-    }
+    iframeSlot.innerHTML = `<iframe src="${url}" allowfullscreen allow="autoplay" style="width:100%; height:100%; border:none;"></iframe>`;
 });
 
-function playDirectUrl() {
-    const url = document.getElementById('directLinkInput').value;
-    if (url) socket.emit("change-video", url);
-}
-
-// --- 6. الشات والتفاعلات ---
-
-function sendEmoji(e) { socket.emit("reaction", e); showEmoji(e); }
-socket.on("reaction", d => showEmoji(d.emoji));
-function showEmoji(e) {
-    const div = document.createElement('div');
-    div.className = "floating-emoji"; div.innerText = e;
-    div.style.left = (Math.random() * 60 + 20) + "%";
-    document.getElementById('video-wrapper').appendChild(div);
-    setTimeout(() => div.remove(), 2500);
-}
-
-document.getElementById('chatInput').onkeypress = (e) => {
-    if(e.key === "Enter" && e.target.value !== "") {
-        socket.emit("chat-msg", e.target.value); e.target.value = "";
-    }
-};
+// --- الشات ---
 socket.on("chat-msg", d => {
     const msg = document.getElementById('messages');
-    msg.innerHTML += `<div class="msg"><img src="${d.user.avatar}"><div class="msg-body"><b>${d.user.name}</b><div class="msg-content">${d.text}</div></div></div>`;
+    msg.innerHTML += `<div><b>${d.user.name}:</b> ${d.text}</div>`;
     msg.scrollTop = msg.scrollHeight;
 });
 
-function copyInviteLink() {
-    const inviteUrl = `${window.location.origin}?room=${document.getElementById('room-id').value || 'main'}`;
-    navigator.clipboard.writeText(inviteUrl).then(() => alert("تم نسخ رابط الدعوة! ✅"));
-}
-
-function initYT(id) {
-    ytPlayer = new YT.Player('youtube-player', {
-        videoId: id, height: '100%', width: '100%',
-        playerVars: { 'autoplay': 1, 'controls': 1 },
-        events: { 'onReady': () => { isYtReady = true; } }
-    });
-}
+document.getElementById('chatInput').onkeypress = (e) => {
+    if(e.key === "Enter" && e.target.value !== "") {
+        socket.emit("chat-msg", e.target.value); 
+        e.target.value = "";
+    }
+};

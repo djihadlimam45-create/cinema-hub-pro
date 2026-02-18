@@ -17,10 +17,12 @@ io.on("connection", (socket) => {
         }
         socket.join(roomId);
         socket.userData = { ...user, roomId, id: socket.id };
+
         if (!rooms[roomId]) {
             rooms[roomId] = { password, users: [], currentVideo: "" };
         }
         rooms[roomId].users.push(socket.userData);
+        
         socket.emit("join-success");
         io.to(roomId).emit("update-users", rooms[roomId].users);
         io.to(roomId).emit("update-agora-map", agoraMap);
@@ -62,8 +64,14 @@ io.on("connection", (socket) => {
         if (rooms[roomId]) {
             rooms[roomId].users = rooms[roomId].users.filter(u => u.id !== socket.id);
             io.to(roomId).emit("update-users", rooms[roomId].users);
+            // تنظيف خريطة Agora
+            for (let uid in agoraMap) {
+                if (agoraMap[uid] === socket.id) delete agoraMap[uid];
+            }
+            io.to(roomId).emit("update-agora-map", agoraMap);
         }
     });
 });
 
-server.listen(3000, () => console.log("🚀 Server running on http://localhost:3000"));
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => console.log(`🚀 Server on http://localhost:${PORT}`));

@@ -11,49 +11,50 @@
 </head>
 <body>
     <div id="login-screen" class="overlay">
-        <div class="login-card">
+        <div class="login-card glass">
             <h1>Cinema Hub 🍿</h1>
-            <div class="avatar-picker">
-                <img id="preview" src="https://api.dicebear.com/7.x/avataaars/svg?seed=1">
-                <div id="avatar-presets"></div>
+            <div class="profile-section">
+                <div id="preview-container" class="avatar-container">
+                    <img id="preview" src="https://api.dicebear.com/7.x/avataaars/svg?seed=Lucky">
+                </div>
+                <div id="avatar-presets" class="presets"></div>
             </div>
             <input type="text" id="username" placeholder="اسمك المستعار">
             <input type="text" id="room-id" placeholder="رقم الغرفة">
             <input type="password" id="room-pass" placeholder="كلمة المرور">
-            <button onclick="join()" class="btn-primary">دخول الغرفة</button>
+            <button onclick="join()" class="btn-primary">دخول السينما</button>
         </div>
     </div>
 
     <div class="app-container" id="main-app" style="display: none;">
-        <header>
-            <div class="search-area">
-                <input type="text" id="movieSearch" placeholder="ابحث عن فيلم أو ضع رابط مباشر...">
-                <div id="searchResults" class="dropdown"></div>
+        <header class="glass">
+            <div class="search-box">
+                <input type="text" id="movieSearch" placeholder="ابحث عن فيلم... 🔍">
+                <div id="searchResults" class="dropdown glass"></div>
             </div>
             <div id="user-list"></div>
         </header>
 
         <main>
-            <div class="video-container">
+            <div class="video-section">
                 <div id="video-wrapper">
                     <video id="video" style="display:none;" controls></video>
-                    <div id="youtube-player"></div>
+                    <div id="youtube-player" style="display:none;"></div>
                     <div id="iframe-slot"></div>
                 </div>
-                <div class="controls-bar">
-                    <div class="reactions">
+                <div class="cinema-footer glass">
+                    <div class="reactions-bar">
                         <button onclick="sendEmoji('🔥')">🔥</button>
                         <button onclick="sendEmoji('😂')">😂</button>
-                        <button onclick="sendEmoji('🍿')">🍿</button>
+                        <button onclick="sendEmoji('❤️')">❤️</button>
+                        <button id="mic-btn" onclick="toggleMic()">🔇</button>
                     </div>
-                    <button id="mic-btn" onclick="toggleMic()">🔇</button>
                 </div>
             </div>
-
-            <aside class="chat-section">
+            <aside class="glass">
                 <div id="messages"></div>
-                <div class="input-area">
-                    <input type="text" id="chatInput" placeholder="اكتب شيئاً...">
+                <div class="chat-input">
+                    <input type="text" id="chatInput" placeholder="اكتب رسالة...">
                 </div>
             </aside>
         </main>
