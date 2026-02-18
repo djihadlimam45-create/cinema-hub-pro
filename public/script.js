@@ -59,11 +59,8 @@ socket.on("join-success", () => {
 
 // --- 3. نظام المزامنة والظهور (Socket.io) ---
 
-// استقبال قائمة المستخدمين ورسمهم جميعاً
 socket.on("update-users", users => {
     const userList = document.getElementById('user-list');
-    
-    // إعادة بناء القائمة: نبدأ بـ "أنت"
     userList.innerHTML = `
         <div class="avatar-container" id="local-user">
             <img src="${currentUser.avatar}" class="avatar-img" id="current-avatar">
@@ -71,12 +68,11 @@ socket.on("update-users", users => {
         </div>
     `;
 
-    // إضافة الآخرين
     users.forEach(user => {
         if (user.id !== socket.id) {
             const div = document.createElement('div');
             div.className = 'avatar-container';
-            div.id = `user-${user.id}`; // المعرف المستخدم للتوهج
+            div.id = `user-${user.id}`;
             div.innerHTML = `
                 <img src="${user.avatar}" class="avatar-img">
                 <div class="user-name">${user.name}</div>
@@ -86,7 +82,6 @@ socket.on("update-users", users => {
     });
 });
 
-// استقبال خريطة الربط للتوهج
 socket.on("update-agora-map", map => {
     agoraToSocketMap = map;
 });
@@ -98,7 +93,6 @@ client.enableAudioVolumeIndicator();
 client.on("volume-indicator", volumes => {
     volumes.forEach((volume) => {
         let elementId = "";
-        
         if (volume.uid === 0 || volume.uid === client.uid) {
             elementId = 'local-user';
         } else {
@@ -114,15 +108,18 @@ client.on("volume-indicator", volumes => {
     });
 });
 
+// إصلاح: استقبال المايكروفون من الآخرين تلقائياً
 client.on("user-published", async (user, mediaType) => {
     await client.subscribe(user, mediaType);
-    if (mediaType === "audio") user.audioTrack.play();
+    console.log("تم استقبال صوت مستخدم جديد");
+    if (mediaType === "audio") {
+        user.audioTrack.play();
+    }
 });
 
 async function toggleMic() {
     const micBtn = document.getElementById('mic-btn');
     
-    // طلب الإذن من المتصفح أولاً
     if (!localAudioTrack) {
         try {
             localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
@@ -134,7 +131,6 @@ async function toggleMic() {
 
     if (!isMicOn) {
         try {
-            // التأكد من الاتصال بالغرفة
             if (client.connectionState === "DISCONNECTED") {
                 const uid = await client.join(APP_ID, CHANNEL, null, null);
                 socket.emit("map-agora-id", { uid: uid });
@@ -163,20 +159,24 @@ async function toggleMic() {
 
 document.getElementById('movieSearch').oninput = async (e) => {
     const query = e.target.value;
-    if(query.length < 3) return;
+    const resDiv = document.getElementById('searchResults');
+    if(query.length < 3) {
+        resDiv.style.display = "none";
+        return;
+    }
     const res = await fetch(`https://api.themoviedb.org/3/search/multi?api_key=${TMDB_KEY}&query=${query}&language=ar-SA`);
     const data = await res.json();
-    const resDiv = document.getElementById('searchResults');
     resDiv.innerHTML = "";
     data.results.slice(0,6).forEach(m => {
         const div = document.createElement('div');
         div.className = "search-item";
-        div.innerHTML = `<img src="https://image.tmdb.org/t/p/w92${m.poster_path}"> <span>${m.title || m.name}</span>`;
+        div.innerHTML = `<img src="https://image.tmdb.org/t/p/w92${m.poster_path || ''}"> <span>${m.title || m.name}</span>`;
         div.onclick = () => {
             const type = m.media_type === 'movie' ? 'movie' : 'tv';
             const url = `https://vidsrc.me/embed/${type}?tmdb=${m.id}`;
             socket.emit("change-video", url);
             resDiv.style.display = "none";
+            document.getElementById('movieSearch').value = ""; // تفريغ خانة البحث بعد الاختيار
         };
         resDiv.appendChild(div);
     });
@@ -212,14 +212,21 @@ function handleSource(url) {
 
 socket.on("video-changed", url => handleSource(url));
 
-// المزامنة
+// تحسين المزامنة: إرسال الحالة
 videoElement.onplay = () => socket.emit("video-control", { type: 'play', time: videoElement.currentTime });
 videoElement.onpause = () => socket.emit("video-control", { type: 'pause', time: videoElement.currentTime });
+
+// تحسين المزامنة: الاستقبال بمنطق العتبة الزمنية
 socket.on("video-sync", data => {
     if (videoElement.style.display !== "none") {
         if (data.type === 'play') videoElement.play();
         if (data.type === 'pause') videoElement.pause();
-        if (Math.abs(videoElement.currentTime - data.time) > 2) videoElement.currentTime = data.time;
+        
+        // لا نقوم بالقفز الزمني (Seek) إلا إذا كان الفرق أكثر من 2 ثانية لمنع التقطيع
+        const diff = Math.abs(videoElement.currentTime - data.time);
+        if (diff > 2) {
+            videoElement.currentTime = data.time;
+        }
     }
 });
 
