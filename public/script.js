@@ -213,83 +213,64 @@ function playDirectUrl() {
     }
 }
 
-// إعداد الصوت عند الدخول
-function setupVoice(userId, roomId) {
-    p// عند إنشاء الـ Peer، اتركه يولد ID تلقائياً أو استخدم الـ Socket ID
-const peer = new Peer(undefined, {
-    host: '/',
-    port: '443'
-});
+// تأكد أن هذه المتغيرات معرفة في أعلى ملف script.js (خارج الدالة)
+// 1. التعريفات الأساسية (مرة واحدة فقط في أعلى الملف)
+const client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
+let localAudioTrack = null;
+let isMicOn = false;
 
-peer.on('open', id => {
-    console.log("معرف الصوت الخاص بي هو: " + id);
-    // نرسل الـ ID الخاص بالصوت للآخرين عبر السوكيت
-    socket.emit('join-room', ROOM_ID, id); 
-});
-
-// استقبال المكالمات
-peer.on('call', call => {
-    call.answer(myStream); // الرد بالبث الخاص بنا
-    const audio = document.createElement('audio');
-    call.on('stream', userAudioStream => {
-        addAudioStream(audio, userAudioStream);
-    });
-});
-
-    // 2. السماح للآخرين بالاتصال بنا
-    socket.on('user-connected-voice', remoteUserId => {
-        connectToNewUser(remoteUserId);
-    });
-}
-
-function connectToNewUser(remoteUserId) {
-    navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
-        const call = peer.call(remoteUserId, stream);
-        const audio = document.createElement('audio');
-        call.on('stream', userStream => addAudioStream(audio, userStream));
-        peers[remoteUserId] = call;
-    });
-}
-
-function addAudioStream(audio, stream) {
-    audio.srcObject = stream;
-    audio.style.display = 'none'; // لا نحتاج لرؤية عنصر الصوت
-    
-    audio.addEventListener('loadedmetadata', () => {
-        audio.play().catch(e => {
-            console.log("المتصفح منع التشغيل التلقائي، سيتم التشغيل عند أول ضغطة");
-            // حل مشكلة المنع: التشغيل عند أول نقرة في الصفحة
-            window.addEventListener('click', () => {
-                audio.play();
-            }, { once: true });
-        });
-    });
-
-    document.body.append(audio); // إضافة العنصر للصفحة ليتمكن من العمل
-}
-// تشغيل/إطفاء الميكروفون
-function toggleMic() {
-    if (!myStream) {
-        // إذا لم نكن قد حصلنا على إذن الميكروفون بعد
-        navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
-            myStream = stream;
-            activateMic();
-        }).catch(err => alert("يرجى السماح بالوصول للميكروفون"));
-        return;
+// 2. الجزء السحري: الاستماع لصوت الآخرين (بدونه لن تسمع أحداً)
+client.on("user-published", async (user, mediaType) => {
+    await client.subscribe(user, mediaType);
+    if (mediaType === "audio") {
+        user.audioTrack.play(); // هذا ما يجعلك تسمع الطرف الآخر
+        console.log("🔊 صوت الطرف الآخر يعمل الآن");
     }
+});
 
-    const enabled = myStream.getAudioTracks()[0].enabled;
-    if (enabled) {
-        myStream.getAudioTracks()[0].enabled = false;
-        document.getElementById('mic-btn').innerText = "🔇";
-        document.getElementById('mic-btn').classList.remove('mic-active');
+// 3. دالة التحكم في المايك (تشغيل وإيقاف)
+async function toggleMic() {
+    const micBtn = document.getElementById('mic-btn');
+    const APP_ID = "97b6d211d09447b480ae3b8b62cc4a68"; // تأكد أنه App ID المشروع الجديد
+    const CHANNEL = "main_room";
+
+    if (!isMicOn) {
+        try {
+            // الانضمام
+            if (client.connectionState === "DISCONNECTED") {
+                await client.join(APP_ID, CHANNEL, null, null);
+            }
+
+            // فتح المايك
+            localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
+            await client.publish(localAudioTrack);
+            
+            isMicOn = true;
+            micBtn.innerHTML = "🎤"; 
+            micBtn.classList.add('mic-active');
+            console.log("✅ مايكك مفتوح الآن والجميع يسمعك");
+
+        } catch (error) {
+            console.error("❌ فشل التشغيل:", error);
+            alert("تأكد من السماح للمتصفح باستخدام المايك");
+        }
     } else {
-        activateMic();
+        try {
+            // إغلاق المايك والمغادرة
+            if (localAudioTrack) {
+                await client.unpublish(localAudioTrack);
+                localAudioTrack.stop();
+                localAudioTrack.close();
+                localAudioTrack = null;
+            }
+            await client.leave();
+            
+            isMicOn = false;
+            micBtn.innerHTML = "🔇";
+            micBtn.classList.remove('mic-active');
+            console.log("❌ تم إيقاف المايك والمغادرة");
+        } catch (error) {
+            console.error("❌ فشل الإيقاف:", error);
+        }
     }
-}
-
-function activateMic() {
-    myStream.getAudioTracks()[0].enabled = true;
-    document.getElementById('mic-btn').innerText = "🎙️";
-    document.getElementById('mic-btn').classList.add('mic-active');
 }
