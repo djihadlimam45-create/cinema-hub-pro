@@ -617,13 +617,7 @@ aside {
 }
 
 /* حاوية الخلفية لصفحة الدخول فقط */
-.login-bg-container {
-    position: absolute;
-    inset: 0;
-    overflow: hidden;
-    z-index: -1; /* خلف عناصر الدخول */
-    background: radial-gradient(circle at center, #1a1a1a 0%, #050505 100%);
-}
+
 
 .floating-poster {
     position: absolute;
