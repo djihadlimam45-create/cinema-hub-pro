@@ -6,9 +6,7 @@ const server = http.createServer(app);
 const io = new Server(server);
 
 app.use(express.static("public"));
-
 const rooms = {};
-let agoraMap = {}; 
 
 io.on("connection", (socket) => {
     socket.on("join-room", ({ roomId, password, user }) => {
@@ -17,36 +15,38 @@ io.on("connection", (socket) => {
         }
         socket.join(roomId);
         socket.userData = { ...user, roomId, id: socket.id };
-
         if (!rooms[roomId]) {
-            rooms[roomId] = { password, users: [], currentVideo: "" };
+            rooms[roomId] = { password: password, users: [], currentVideo: "" };
         }
         rooms[roomId].users.push(socket.userData);
-        
         socket.emit("join-success");
         io.to(roomId).emit("update-users", rooms[roomId].users);
-        io.to(roomId).emit("update-agora-map", agoraMap);
-    });
-
-    socket.on("map-agora-id", ({ uid }) => {
-        const roomId = socket.userData?.roomId;
-        if (roomId) {
-            agoraMap[uid] = socket.id;
-            io.to(roomId).emit("update-agora-map", agoraMap);
+        
+        if(rooms[roomId].currentVideo) {
+            socket.emit("video-changed", rooms[roomId].currentVideo);
         }
+        // داخل join-room بعد النجاح
+socket.to(roomId).emit("user-connected-voice", socket.id);
     });
 
+    // عندما يغير شخص الفيديو (رابط مباشر أو يوتيوب)
     socket.on("change-video", (url) => {
         const roomId = socket.userData?.roomId;
         if (roomId) {
             rooms[roomId].currentVideo = url;
+            // نرسل الرابط الجديد للجميع في الغرفة
             io.to(roomId).emit("video-changed", url);
         }
     });
 
+    // التحكم الجماعي المتقدم (إرسال أوامر التشغيل والإيقاف والتوقيت)
     socket.on("video-control", (data) => {
         const roomId = socket.userData?.roomId;
-        if (roomId) socket.to(roomId).emit("video-sync", data);
+        if (roomId) {
+            // "socket.to(roomId)" ترسل للجميع ما عدا الشخص الذي ضغط الزر
+            // لضمان عدم حدوث تكرار للأمر عند المرسل
+            socket.to(roomId).emit("video-sync", data);
+        }
     });
 
     socket.on("chat-msg", (text) => {
@@ -64,14 +64,8 @@ io.on("connection", (socket) => {
         if (rooms[roomId]) {
             rooms[roomId].users = rooms[roomId].users.filter(u => u.id !== socket.id);
             io.to(roomId).emit("update-users", rooms[roomId].users);
-            // تنظيف خريطة Agora
-            for (let uid in agoraMap) {
-                if (agoraMap[uid] === socket.id) delete agoraMap[uid];
-            }
-            io.to(roomId).emit("update-agora-map", agoraMap);
         }
     });
 });
 
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`🚀 Server on http://localhost:${PORT}`));
+server.listen(3000, () => console.log("🚀 السيرفر يعمل وجاهز للمزامنة على: http://localhost:3000"));
