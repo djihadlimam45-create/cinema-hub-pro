@@ -12,12 +12,13 @@ let ytPlayer;
 let isYtReady = false;
 let hls = null;
 const videoElement = document.getElementById('video');
+
+// جسر الربط: يربط رقم الصوت (UID) بمعرف المستخدم (Socket ID)
 let agoraToSocketMap = {}; 
 
 // --- 2. نظام الأفاتارات وتجهيز الدخول ---
 function init() {
     const presets = document.getElementById('avatar-presets');
-    if (!presets) return; // حماية ضد أخطاء عدم وجود العنصر
     for(let i=1; i<=5; i++) {
         const url = `https://api.dicebear.com/7.x/avataaars/svg?seed=${i+33}`;
         const img = document.createElement('img');
@@ -41,15 +42,10 @@ document.getElementById('avatarInput').onchange = function(e) {
 };
 
 function join() {
-    if (AgoraRTC.getAudioContext) {
-        AgoraRTC.getAudioContext().resume();
-    }
     const name = document.getElementById('username').value;
     const room = document.getElementById('room-id').value;
     const pass = document.getElementById('room-pass').value;
-    
     if(!name || !room || !pass) return alert("أكمل البيانات!");
-    
     currentUser.name = name;
     currentUser.avatar = currentUser.avatar || document.getElementById('preview').src;
     socket.emit("join-room", { roomId: room, password: pass, user: currentUser });
@@ -63,10 +59,11 @@ socket.on("join-success", () => {
 
 // --- 3. نظام المزامنة والظهور (Socket.io) ---
 
+// استقبال قائمة المستخدمين ورسمهم جميعاً
 socket.on("update-users", users => {
     const userList = document.getElementById('user-list');
-    if (!userList) return;
-
+    
+    // إعادة بناء القائمة: نبدأ بـ "أنت"
     userList.innerHTML = `
         <div class="avatar-container" id="local-user">
             <img src="${currentUser.avatar}" class="avatar-img" id="current-avatar">
@@ -74,11 +71,12 @@ socket.on("update-users", users => {
         </div>
     `;
 
+    // إضافة الآخرين
     users.forEach(user => {
         if (user.id !== socket.id) {
             const div = document.createElement('div');
             div.className = 'avatar-container';
-            div.id = `user-${user.id}`;
+            div.id = `user-${user.id}`; // المعرف المستخدم للتوهج
             div.innerHTML = `
                 <img src="${user.avatar}" class="avatar-img">
                 <div class="user-name">${user.name}</div>
@@ -88,6 +86,7 @@ socket.on("update-users", users => {
     });
 });
 
+// استقبال خريطة الربط للتوهج
 socket.on("update-agora-map", map => {
     agoraToSocketMap = map;
 });
@@ -99,6 +98,7 @@ client.enableAudioVolumeIndicator();
 client.on("volume-indicator", volumes => {
     volumes.forEach((volume) => {
         let elementId = "";
+        
         if (volume.uid === 0 || volume.uid === client.uid) {
             elementId = 'local-user';
         } else {
@@ -116,40 +116,33 @@ client.on("volume-indicator", volumes => {
 
 client.on("user-published", async (user, mediaType) => {
     await client.subscribe(user, mediaType);
-    if (mediaType === "audio") {
-        user.audioTrack.play();
-    }
+    if (mediaType === "audio") user.audioTrack.play();
 });
 
 async function toggleMic() {
     const micBtn = document.getElementById('mic-btn');
-    try {
-        // 1. تأكد من الاتصال بـ Agora أولاً
-        if (client.connectionState === "DISCONNECTED") {
-            const uid = await client.join(APP_ID, CHANNEL, null, null);
-            socket.emit("map-agora-id", { uid: uid });
-        }
-
-        // 2. إنشاء المسار الصوتي إذا لم يكن موجوداً
-        if (!localAudioTrack) {
-            localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
-            await client.publish(localAudioTrack);
-        }
-
-        if (!isMicOn) {
+    if (!isMicOn) {
+        try {
+            if (client.connectionState === "DISCONNECTED") {
+                const uid = await client.join(APP_ID, CHANNEL, null, null);
+                // ربط الـ UID بالـ Socket ID في السيرفر
+                socket.emit("map-agora-id", { uid: uid });
+            }
+            if (!localAudioTrack) {
+                localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
+                await client.publish(localAudioTrack);
+            }
             await localAudioTrack.setEnabled(true);
             isMicOn = true;
             micBtn.innerHTML = "🎤"; 
             micBtn.classList.add('mic-active');
-        } else {
-            await localAudioTrack.setEnabled(false);
-            isMicOn = false;
-            micBtn.innerHTML = "🔇";
-            micBtn.classList.remove('mic-active');
-            document.getElementById('local-user').classList.remove('speaking');
-        }
-    } catch (error) { 
-        console.error("Mic Toggle Error:", error); 
+        } catch (error) { console.error(error); }
+    } else {
+        if (localAudioTrack) await localAudioTrack.setEnabled(false);
+        isMicOn = false;
+        micBtn.innerHTML = "🔇";
+        micBtn.classList.remove('mic-active');
+        document.getElementById('local-user').classList.remove('speaking');
     }
 }
 
@@ -206,9 +199,9 @@ function handleSource(url) {
 
 socket.on("video-changed", url => handleSource(url));
 
+// المزامنة
 videoElement.onplay = () => socket.emit("video-control", { type: 'play', time: videoElement.currentTime });
 videoElement.onpause = () => socket.emit("video-control", { type: 'pause', time: videoElement.currentTime });
-
 socket.on("video-sync", data => {
     if (videoElement.style.display !== "none") {
         if (data.type === 'play') videoElement.play();
@@ -217,30 +210,43 @@ socket.on("video-sync", data => {
     }
 });
 
+function playDirectUrl() {
+    const url = document.getElementById('directLinkInput').value;
+    if (url) socket.emit("change-video", url);
+}
+
 // --- 6. الشات والتفاعلات ---
 
 function sendEmoji(e) { socket.emit("reaction", e); showEmoji(e); }
 socket.on("reaction", d => showEmoji(d.emoji));
-
 function showEmoji(e) {
     const div = document.createElement('div');
-    div.className = "floating-emoji"; 
-    div.innerText = e;
+    div.className = "floating-emoji"; div.innerText = e;
     div.style.left = (Math.random() * 60 + 20) + "%";
-    const wrapper = document.getElementById('video-wrapper');
-    if (wrapper) wrapper.appendChild(div);
+    document.getElementById('video-wrapper').appendChild(div);
     setTimeout(() => div.remove(), 2500);
 }
 
 document.getElementById('chatInput').onkeypress = (e) => {
     if(e.key === "Enter" && e.target.value !== "") {
-        socket.emit("chat-msg", e.target.value); 
-        e.target.value = "";
+        socket.emit("chat-msg", e.target.value); e.target.value = "";
     }
 };
-
 socket.on("chat-msg", d => {
     const msg = document.getElementById('messages');
     msg.innerHTML += `<div class="msg"><img src="${d.user.avatar}"><div class="msg-body"><b>${d.user.name}</b><div class="msg-content">${d.text}</div></div></div>`;
     msg.scrollTop = msg.scrollHeight;
 });
+
+function copyInviteLink() {
+    const inviteUrl = `${window.location.origin}?room=${document.getElementById('room-id').value || 'main'}`;
+    navigator.clipboard.writeText(inviteUrl).then(() => alert("تم نسخ رابط الدعوة! ✅"));
+}
+
+function initYT(id) {
+    ytPlayer = new YT.Player('youtube-player', {
+        videoId: id, height: '100%', width: '100%',
+        playerVars: { 'autoplay': 1, 'controls': 1 },
+        events: { 'onReady': () => { isYtReady = true; } }
+    });
+}
