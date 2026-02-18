@@ -13,6 +13,9 @@ let isYtReady = false;
 let hls = null;
 const videoElement = document.getElementById('video');
 
+// جسر الربط: يربط رقم الصوت (UID) بمعرف المستخدم (Socket ID)
+let agoraToSocketMap = {}; 
+
 // --- 2. نظام الأفاتارات وتجهيز الدخول ---
 function init() {
     const presets = document.getElementById('avatar-presets');
@@ -51,61 +54,69 @@ function join() {
 socket.on("join-success", () => {
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('main-app').style.display = 'flex';
-    // تحديث صورة "أنت" في القائمة
     document.getElementById('current-avatar').src = currentUser.avatar;
 });
 
-// --- 3. نظام الصوت (Agora) وتوهج الأفاتار ---
+// --- 3. نظام المزامنة والظهور (Socket.io) ---
 
-// تفعيل مراقب الصوت (خارج الدوال ليعمل مرة واحدة)
-client.enableAudioVolumeIndicator();
+// استقبال قائمة المستخدمين ورسمهم جميعاً
+socket.on("update-users", users => {
+    const userList = document.getElementById('user-list');
+    
+    // إعادة بناء القائمة: نبدأ بـ "أنت"
+    userList.innerHTML = `
+        <div class="avatar-container" id="local-user">
+            <img src="${currentUser.avatar}" class="avatar-img" id="current-avatar">
+            <div class="user-name">أنت (${currentUser.name})</div>
+        </div>
+    `;
 
-client.on("volume-indicator", volumes => {
-    volumes.forEach((volume) => {
-        let avatarId;
-        // إذا كان المستخدم المحلي (أنت)
-        if (volume.uid === 0 || volume.uid == client.uid) {
-            avatarId = 'local-user';
-        } else {
-            // إذا كان صديق (مستخدم عن بعد)
-            avatarId = `user-${volume.uid}`;
-        }
-
-        const avatarElement = document.getElementById(avatarId);
-        if (avatarElement) {
-            if (volume.level > 45) { // حساسية الصوت
-                avatarElement.classList.add('speaking');
-            } else {
-                avatarElement.classList.remove('speaking');
-            }
+    // إضافة الآخرين
+    users.forEach(user => {
+        if (user.id !== socket.id) {
+            const div = document.createElement('div');
+            div.className = 'avatar-container';
+            div.id = `user-${user.id}`; // المعرف المستخدم للتوهج
+            div.innerHTML = `
+                <img src="${user.avatar}" class="avatar-img">
+                <div class="user-name">${user.name}</div>
+            `;
+            userList.appendChild(div);
         }
     });
 });
 
-// الاستماع لدخول الآخرين ورسم صورهم
-client.on("user-published", async (user, mediaType) => {
-    await client.subscribe(user, mediaType);
-    if (mediaType === "audio") {
-        user.audioTrack.play();
-        
-        // رسم الأفاتار الخاص بالصديق
-        const userList = document.getElementById('user-list');
-        if (!document.getElementById(`user-${user.uid}`)) {
-            const newUserDiv = document.createElement('div');
-            newUserDiv.id = `user-${user.uid}`;
-            newUserDiv.className = 'avatar-container';
-            newUserDiv.innerHTML = `
-                <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=${user.uid}" class="avatar-img">
-                <div class="user-name">صديق</div>
-            `;
-            userList.appendChild(newUserDiv);
-        }
-    }
+// استقبال خريطة الربط للتوهج
+socket.on("update-agora-map", map => {
+    agoraToSocketMap = map;
 });
 
-client.on("user-left", (user) => {
-    const remoteUserDiv = document.getElementById(`user-${user.uid}`);
-    if (remoteUserDiv) remoteUserDiv.remove();
+// --- 4. نظام الصوت (Agora) وتوهج الأفاتار ---
+
+client.enableAudioVolumeIndicator();
+
+client.on("volume-indicator", volumes => {
+    volumes.forEach((volume) => {
+        let elementId = "";
+        
+        if (volume.uid === 0 || volume.uid === client.uid) {
+            elementId = 'local-user';
+        } else {
+            const socketId = agoraToSocketMap[volume.uid];
+            if (socketId) elementId = `user-${socketId}`;
+        }
+
+        const el = document.getElementById(elementId);
+        if (el) {
+            if (volume.level > 40) el.classList.add('speaking');
+            else el.classList.remove('speaking');
+        }
+    });
+});
+
+client.on("user-published", async (user, mediaType) => {
+    await client.subscribe(user, mediaType);
+    if (mediaType === "audio") user.audioTrack.play();
 });
 
 async function toggleMic() {
@@ -113,7 +124,9 @@ async function toggleMic() {
     if (!isMicOn) {
         try {
             if (client.connectionState === "DISCONNECTED") {
-                await client.join(APP_ID, CHANNEL, null, null);
+                const uid = await client.join(APP_ID, CHANNEL, null, null);
+                // ربط الـ UID بالـ Socket ID في السيرفر
+                socket.emit("map-agora-id", { uid: uid });
             }
             if (!localAudioTrack) {
                 localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
@@ -133,7 +146,7 @@ async function toggleMic() {
     }
 }
 
-// --- 4. البحث وتشغيل الأفلام والمزامنة ---
+// --- 5. البحث وتشغيل الأفلام والمزامنة ---
 
 document.getElementById('movieSearch').oninput = async (e) => {
     const query = e.target.value;
@@ -202,7 +215,7 @@ function playDirectUrl() {
     if (url) socket.emit("change-video", url);
 }
 
-// --- 5. الشات والتفاعلات وروابط الدعوة ---
+// --- 6. الشات والتفاعلات ---
 
 function sendEmoji(e) { socket.emit("reaction", e); showEmoji(e); }
 socket.on("reaction", d => showEmoji(d.emoji));
