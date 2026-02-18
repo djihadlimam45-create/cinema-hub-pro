@@ -121,27 +121,40 @@ client.on("user-published", async (user, mediaType) => {
 
 async function toggleMic() {
     const micBtn = document.getElementById('mic-btn');
+    
+    // طلب الإذن من المتصفح أولاً
+    if (!localAudioTrack) {
+        try {
+            localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
+        } catch (e) {
+            alert("يرجى السماح بالوصول للميكروفون من إعدادات المتصفح");
+            return;
+        }
+    }
+
     if (!isMicOn) {
         try {
+            // التأكد من الاتصال بالغرفة
             if (client.connectionState === "DISCONNECTED") {
                 const uid = await client.join(APP_ID, CHANNEL, null, null);
-                // ربط الـ UID بالـ Socket ID في السيرفر
                 socket.emit("map-agora-id", { uid: uid });
             }
-            if (!localAudioTrack) {
-                localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
-                await client.publish(localAudioTrack);
-            }
+            
+            await client.publish(localAudioTrack);
             await localAudioTrack.setEnabled(true);
+            
             isMicOn = true;
-            micBtn.innerHTML = "🎤"; 
             micBtn.classList.add('mic-active');
-        } catch (error) { console.error(error); }
+            micBtn.innerHTML = "🎤"; 
+        } catch (error) {
+            console.error("خطأ في تفعيل المايك:", error);
+        }
     } else {
-        if (localAudioTrack) await localAudioTrack.setEnabled(false);
+        await localAudioTrack.setEnabled(false);
+        await client.unpublish(localAudioTrack);
         isMicOn = false;
-        micBtn.innerHTML = "🔇";
         micBtn.classList.remove('mic-active');
+        micBtn.innerHTML = "🔇";
         document.getElementById('local-user').classList.remove('speaking');
     }
 }
