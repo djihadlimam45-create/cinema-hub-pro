@@ -306,6 +306,32 @@ aside {
     padding: 20px;
 }
 
+.login-bg-container {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    z-index: -1; /* خلف عناصر الدخول */
+    background: radial-gradient(circle at center, #1a1a1a 0%, #050505 100%);
+}
+
+.floating-poster {
+    position: absolute;
+    width: 120px;
+    border-radius: 10px;
+    opacity: 0.2;
+    filter: grayscale(0.5) blur(1px);
+    animation: floatUp 20s infinite linear;
+    pointer-events: none;
+}
+
+@keyframes floatUp {
+    0% { transform: translateY(110vh) rotate(0deg); opacity: 0; }
+    10% { opacity: 0.2; }
+    90% { opacity: 0.2; }
+    100% { transform: translateY(-20vh) rotate(20deg); opacity: 0; }
+}
+
+
 .login-card {
     background: rgba(20, 20, 20, 0.75);
     backdrop-filter: blur(20px); /* تأثير الزجاج */
