@@ -112,10 +112,11 @@ client.on("volume-indicator", volumes => {
 // تأكد من وجود هذا الحدث لاستقبال صوت الآخرين فور انضمامهم
 client.on("user-published", async (user, mediaType) => {
     await client.subscribe(user, mediaType);
-    console.log("تم استقبال بث جديد من نوع:", mediaType);
-    
     if (mediaType === "audio") {
-        user.audioTrack.play(); // تشغيل صوت الطرف الآخر
+        // إنشاء زر وهمي أو طلب تفاعل إذا منع المتصفح الصوت التلقائي
+        user.audioTrack.play().catch(e => {
+            console.log("المتصفح يمنع الصوت التلقائي، يرجى النقر على الشاشة");
+        });
     }
 });
 
@@ -123,24 +124,30 @@ async function toggleMic() {
     const micBtn = document.getElementById('mic-btn');
     
     try {
-        // 1. إذا لم يكن المسار الصوتي موجوداً، نقوم بإنشائه
+        // 1. طلب الصلاحية وإنشاء المسار الصوتي أولاً
         if (!localAudioTrack) {
-            localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
+            console.log("جارٍ طلب صلاحية المايكروفون...");
+            localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack({
+                ANS: true, // إلغاء الضوضاء
+                AEC: true, // إلغاء الصدى
+            });
+            console.log("تم الحصول على الصلاحية بنجاح.");
         }
 
-        // 2. إذا لم نكن متصلين بـ Agora بعد، يجب الانضمام أولاً
+        // 2. التحقق من الاتصال بغرفة Agora
         if (client.connectionState === "DISCONNECTED") {
             const uid = await client.join(APP_ID, CHANNEL, null, null);
             socket.emit("map-agora-id", { uid: uid });
         }
 
         if (!isMicOn) {
-            // تفعيل المايك ونشره للآخرين
-            await client.publish(localAudioTrack);
+            // تفعيل المايك ونشره
             await localAudioTrack.setEnabled(true);
+            await client.publish(localAudioTrack);
             
             isMicOn = true;
             micBtn.classList.add('mic-active');
+            micBtn.style.backgroundColor = "#2ecc71"; // تغيير اللون للأخضر كما في صورتك
             micBtn.innerHTML = "🎤"; 
         } else {
             // إيقاف المايك وإلغاء النشر
@@ -149,12 +156,14 @@ async function toggleMic() {
             
             isMicOn = false;
             micBtn.classList.remove('mic-active');
+            micBtn.style.backgroundColor = ""; 
             micBtn.innerHTML = "🔇";
             document.getElementById('local-user').classList.remove('speaking');
         }
     } catch (error) {
-        console.error("فشل تفعيل المايكروفون:", error);
-        alert("تأكد من إعطاء صلاحية المايكروفون للمتصفح.");
+        console.error("فشل الوصول للمايكروفون:", error);
+        // ظهور التنبيه الذي رأيته في صورتك
+        alert("يرجى الضغط على أيقونة القفل بجانب رابط الموقع وتفعيل المايكروفون (Allow).");
     }
 }
 
