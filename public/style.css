@@ -75,20 +75,10 @@ main {
 
 /* --- 3. البحث والمدخلات --- */
 .search-box {
-    position: relative; /* ضروري لتحديد موقع القائمة المنبثقة */
-}
-
-#searchResults {
-    position: absolute;
-    top: 100%; /* تظهر مباشرة تحت مربع البحث */
-    left: 0;
-    right: 0;
-    z-index: 1000; /* تجعلها فوق مشغل الفيديو دائماً */
-    background: #1a1a1a;
-    border-radius: 0 0 10px 10px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-    max-height: 300px;
-    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    width: 400px;
+    position: relative;
 }
 
 #movieSearch, #directLinkInput {
