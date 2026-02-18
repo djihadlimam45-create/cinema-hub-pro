@@ -231,46 +231,46 @@ client.on("user-published", async (user, mediaType) => {
 // 3. دالة التحكم في المايك (تشغيل وإيقاف)
 async function toggleMic() {
     const micBtn = document.getElementById('mic-btn');
-    const APP_ID = "97b6d211d09447b480ae3b8b62cc4a68"; // تأكد أنه App ID المشروع الجديد
+    const APP_ID = "97b6d211d09447b480ae3b8b62cc4a68";
     const CHANNEL = "main_room";
 
     if (!isMicOn) {
+        // --- تشغيل المايك لأول مرة ---
         try {
-            // الانضمام
             if (client.connectionState === "DISCONNECTED") {
                 await client.join(APP_ID, CHANNEL, null, null);
             }
 
-            // فتح المايك
-            localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
-            await client.publish(localAudioTrack);
+            if (!localAudioTrack) {
+                localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
+                await client.publish(localAudioTrack);
+            }
+
+            // تفعيل المايك (Unmute)
+            await localAudioTrack.setEnabled(true); 
             
             isMicOn = true;
             micBtn.innerHTML = "🎤"; 
             micBtn.classList.add('mic-active');
-            console.log("✅ مايكك مفتوح الآن والجميع يسمعك");
+            console.log("✅ المايك يعمل الآن");
 
         } catch (error) {
             console.error("❌ فشل التشغيل:", error);
-            alert("تأكد من السماح للمتصفح باستخدام المايك");
         }
     } else {
+        // --- كتم المايك فقط (Mute) دون مغادرة القناة ---
         try {
-            // إغلاق المايك والمغادرة
             if (localAudioTrack) {
-                await client.unpublish(localAudioTrack);
-                localAudioTrack.stop();
-                localAudioTrack.close();
-                localAudioTrack = null;
+                await localAudioTrack.setEnabled(false); // كتم الصوت فقط
             }
-            await client.leave();
             
             isMicOn = false;
             micBtn.innerHTML = "🔇";
             micBtn.classList.remove('mic-active');
-            console.log("❌ تم إيقاف المايك والمغادرة");
+            console.log("🔇 تم كتم المايك (لا تزال تسمع الآخرين)");
+
         } catch (error) {
-            console.error("❌ فشل الإيقاف:", error);
+            console.error("❌ فشل الكتم:", error);
         }
     }
 }
