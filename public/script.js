@@ -1,19 +1,24 @@
-// --- 1. التعريفات الأساسية والمتغيرات العالمية ---
-const socket = io();
-const client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
-const TMDB_KEY = "4a71b39887f9b5dd489791402728ab1a";
-const APP_ID = "97b6d211d09447b480ae3b8b62cc4a68";
-const CHANNEL = "main_room";
+// أضف هذا المتغير في أعلى الملف
+let myStream;
 
-let localAudioTrack = null;
-let isMicOn = false;
+// حدث دالة الدخول أو أضف هذا الجزء في بدايتها
+navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+    myStream = stream;
+    console.log("تم الوصول للميكروفون بنجاح");
+}).catch(err => {
+    console.error("فشل الوصول للميكروفون:", err);
+});
+
+
+const socket = io();
 let currentUser = { name: "", avatar: "" };
 let ytPlayer;
 let isYtReady = false;
-let hls = null;
+let hls = null; // لتخزين كائن HLS
+const TMDB_KEY = "4a71b39887f9b5dd489791402728ab1a";
 const videoElement = document.getElementById('video');
 
-// --- 2. نظام الأفاتارات وتجهيز الدخول ---
+// 1. نظام الدخول والأفاتارات + إصلاح الرفع
 function init() {
     const presets = document.getElementById('avatar-presets');
     for(let i=1; i<=5; i++) {
@@ -29,11 +34,13 @@ function init() {
 }
 init();
 
+// إصلاح مشكلة رفع الصورة الشخصية (تحديث المعاينة فوراً)
 document.getElementById('avatarInput').onchange = function(e) {
     const reader = new FileReader();
     reader.onload = function() {
-        document.getElementById('preview').src = reader.result;
-        currentUser.avatar = reader.result;
+        const output = document.getElementById('preview');
+        output.src = reader.result;
+        currentUser.avatar = reader.result; // تحديث الأفاتار الحالي بالصورة المرفوعة
     };
     if (e.target.files[0]) reader.readAsDataURL(e.target.files[0]);
 };
@@ -51,90 +58,9 @@ function join() {
 socket.on("join-success", () => {
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('main-app').style.display = 'flex';
-    // تحديث صورة "أنت" في القائمة
-    document.getElementById('current-avatar').src = currentUser.avatar;
 });
 
-// --- 3. نظام الصوت (Agora) وتوهج الأفاتار ---
-
-// تفعيل مراقب الصوت (خارج الدوال ليعمل مرة واحدة)
-client.enableAudioVolumeIndicator();
-
-client.on("volume-indicator", volumes => {
-    volumes.forEach((volume) => {
-        let avatarId;
-        // إذا كان المستخدم المحلي (أنت)
-        if (volume.uid === 0 || volume.uid == client.uid) {
-            avatarId = 'local-user';
-        } else {
-            // إذا كان صديق (مستخدم عن بعد)
-            avatarId = `user-${volume.uid}`;
-        }
-
-        const avatarElement = document.getElementById(avatarId);
-        if (avatarElement) {
-            if (volume.level > 45) { // حساسية الصوت
-                avatarElement.classList.add('speaking');
-            } else {
-                avatarElement.classList.remove('speaking');
-            }
-        }
-    });
-});
-
-// الاستماع لدخول الآخرين ورسم صورهم
-client.on("user-published", async (user, mediaType) => {
-    await client.subscribe(user, mediaType);
-    if (mediaType === "audio") {
-        user.audioTrack.play();
-        
-        // رسم الأفاتار الخاص بالصديق
-        const userList = document.getElementById('user-list');
-        if (!document.getElementById(`user-${user.uid}`)) {
-            const newUserDiv = document.createElement('div');
-            newUserDiv.id = `user-${user.uid}`;
-            newUserDiv.className = 'avatar-container';
-            newUserDiv.innerHTML = `
-                <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=${user.uid}" class="avatar-img">
-                <div class="user-name">صديق</div>
-            `;
-            userList.appendChild(newUserDiv);
-        }
-    }
-});
-
-client.on("user-left", (user) => {
-    const remoteUserDiv = document.getElementById(`user-${user.uid}`);
-    if (remoteUserDiv) remoteUserDiv.remove();
-});
-
-async function toggleMic() {
-    const micBtn = document.getElementById('mic-btn');
-    if (!isMicOn) {
-        try {
-            if (client.connectionState === "DISCONNECTED") {
-                await client.join(APP_ID, CHANNEL, null, null);
-            }
-            if (!localAudioTrack) {
-                localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
-                await client.publish(localAudioTrack);
-            }
-            await localAudioTrack.setEnabled(true);
-            isMicOn = true;
-            micBtn.innerHTML = "🎤"; 
-            micBtn.classList.add('mic-active');
-        } catch (error) { console.error(error); }
-    } else {
-        if (localAudioTrack) await localAudioTrack.setEnabled(false);
-        isMicOn = false;
-        micBtn.innerHTML = "🔇";
-        micBtn.classList.remove('mic-active');
-        document.getElementById('local-user').classList.remove('speaking');
-    }
-}
-
-// --- 4. البحث وتشغيل الأفلام والمزامنة ---
-
+// 2. البحث والمزامنة "الإجبارية"
 document.getElementById('movieSearch').oninput = async (e) => {
     const query = e.target.value;
     if(query.length < 3) return;
@@ -157,9 +83,12 @@ document.getElementById('movieSearch').oninput = async (e) => {
     resDiv.style.display = "block";
 };
 
+// وظيفة التعامل مع المصادر (يوتيوب، إطارات، أو روابط مباشرة m3u8)
 function handleSource(url) {
     const ytArea = document.getElementById('youtube-player');
     const iframeSlot = document.getElementById('iframe-slot');
+    
+    // إخفاء كل شيء أولاً
     ytArea.style.display = "none";
     videoElement.style.display = "none";
     iframeSlot.innerHTML = "";
@@ -169,47 +98,86 @@ function handleSource(url) {
         const id = url.includes('v=') ? url.split('v=')[1].split('&')[0] : url.split('/').pop();
         if(isYtReady) ytPlayer.loadVideoById(id); else initYT(id);
     } 
-    else if (url.includes('.m3u8') || url.includes('.mp4')) {
+    else if (typeof url === 'string' && (url.includes('.m3u8') || url.includes('.mp4') || url.includes('visitmycityfor365days'))) {
         videoElement.style.display = "block";
-        if (url.includes('.m3u8')) {
+        videoElement.controls = true; // التأكد من تفعيل أزرار التحكم
+
+        if (url.includes('.m3u8') || url.includes('hls')) {
             if (Hls.isSupported()) {
                 if (hls) hls.destroy();
                 hls = new Hls();
-                hls.loadSource(url); hls.attachMedia(videoElement);
+                hls.loadSource(url);
+                hls.attachMedia(videoElement);
+                hls.on(Hls.Events.MANIFEST_PARSED, () => videoElement.play());
             }
-        } else { videoElement.src = url; }
-        videoElement.play();
+        } else {
+            videoElement.src = url;
+            videoElement.play();
+        }
     } else {
+        // إذا كان رابط Iframe عادي من البحث (vidsrc)
+        iframeSlot.style.display = "block";
         iframeSlot.innerHTML = `<iframe src="${url}" allowfullscreen allow="autoplay" style="width:100%; height:100%; border:none;"></iframe>`;
     }
 }
 
 socket.on("video-changed", url => handleSource(url));
 
-// المزامنة
+// 3. التحكم الجماعي (Sync Control)
 videoElement.onplay = () => socket.emit("video-control", { type: 'play', time: videoElement.currentTime });
 videoElement.onpause = () => socket.emit("video-control", { type: 'pause', time: videoElement.currentTime });
+videoElement.onseeked = () => socket.emit("video-control", { type: 'seek', time: videoElement.currentTime });
+
 socket.on("video-sync", data => {
     if (videoElement.style.display !== "none") {
         if (data.type === 'play') videoElement.play();
         if (data.type === 'pause') videoElement.pause();
-        if (Math.abs(videoElement.currentTime - data.time) > 2) videoElement.currentTime = data.time;
+        if (Math.abs(videoElement.currentTime - data.time) > 2) {
+            videoElement.currentTime = data.time;
+        }
+    } else if (isYtReady && ytPlayer) {
+        if (data.type === 'play') ytPlayer.playVideo();
+        if (data.type === 'pause') ytPlayer.pauseVideo();
+        if (Math.abs(ytPlayer.getCurrentTime() - data.time) > 2) ytPlayer.seekTo(data.time);
     }
 });
 
-function playDirectUrl() {
-    const url = document.getElementById('directLinkInput').value;
-    if (url) socket.emit("change-video", url);
+function showSyncOverlay() {
+    const btn = document.createElement('button');
+    btn.innerHTML = "بدء المزامنة الآن 🍿";
+    btn.className = "btn-primary";
+    btn.style = "position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:200px; z-index:1000;";
+    btn.onclick = () => { videoElement.play(); btn.remove(); };
+    document.getElementById('video-wrapper').appendChild(btn);
 }
 
-// --- 5. الشات والتفاعلات وروابط الدعوة ---
+// 4. يوتيوب والشات والتفاعلات
+function initYT(id) {
+    ytPlayer = new YT.Player('youtube-player', {
+        videoId: id, height: '100%', width: '100%',
+        playerVars: { 'autoplay': 1, 'controls': 1 },
+        events: { 'onReady': () => { isYtReady = true; } }
+    });
+}
 
 function sendEmoji(e) { socket.emit("reaction", e); showEmoji(e); }
 socket.on("reaction", d => showEmoji(d.emoji));
 function showEmoji(e) {
     const div = document.createElement('div');
     div.className = "floating-emoji"; div.innerText = e;
-    div.style.left = (Math.random() * 60 + 20) + "%";
+    div.style.left = Math.random() * 80 + 10 + "%";
+    document.getElementById('video-wrapper').appendChild(div);
+    setTimeout(() => div.remove(), 2500);
+}
+function showEmoji(e) {
+    // تشغيل صوت خفيف إذا أردت (اختياري)
+    // const audio = new Audio('pop.mp3'); audio.play();
+
+    const div = document.createElement('div');
+    div.className = "floating-emoji"; 
+    div.innerText = e;
+    // جعل الإيموجي يظهر في أماكن متفرقة أكثر حيوية
+    div.style.left = (Math.random() * 60 + 20) + "%"; 
     document.getElementById('video-wrapper').appendChild(div);
     setTimeout(() => div.remove(), 2500);
 }
@@ -221,19 +189,107 @@ document.getElementById('chatInput').onkeypress = (e) => {
 };
 socket.on("chat-msg", d => {
     const msg = document.getElementById('messages');
-    msg.innerHTML += `<div class="msg"><img src="${d.user.avatar}"><div class="msg-body"><b>${d.user.name}</b><div class="msg-content">${d.text}</div></div></div>`;
+    msg.innerHTML += `
+        <div class="msg">
+            <img src="${d.user.avatar}">
+            <div class="msg-body">
+                <b>${d.user.name}</b>
+                <div class="msg-content">${d.text}</div>
+            </div>
+        </div>`;
     msg.scrollTop = msg.scrollHeight;
 });
-
-function copyInviteLink() {
-    const inviteUrl = `${window.location.origin}?room=${document.getElementById('room-id').value || 'main'}`;
-    navigator.clipboard.writeText(inviteUrl).then(() => alert("تم نسخ رابط الدعوة! ✅"));
+socket.on("update-users", users => {
+    document.getElementById('usersList').innerHTML = users.map(u => `<img src="${u.avatar}" class="user-img-small" title="${u.name}">`).join('');
+});
+function playDirectUrl() {
+    const url = document.getElementById('directLinkInput').value;
+    if (url && (url.includes('.m3u8') || url.includes('.mp4'))) {
+        // نرسل الرابط للسيرفر لكي يغير الفيديو عند الجميع
+        socket.emit("change-video", url);
+        document.getElementById('directLinkInput').value = ""; // مسح الخانة بعد الإرسال
+    } else {
+        alert("يرجى وضع رابط فيديو مباشر صحيح (m3u8 أو mp4)");
+    }
 }
 
-function initYT(id) {
-    ytPlayer = new YT.Player('youtube-player', {
-        videoId: id, height: '100%', width: '100%',
-        playerVars: { 'autoplay': 1, 'controls': 1 },
-        events: { 'onReady': () => { isYtReady = true; } }
+// إعداد الصوت عند الدخول
+function setupVoice(userId, roomId) {
+    p// عند إنشاء الـ Peer، اتركه يولد ID تلقائياً أو استخدم الـ Socket ID
+const peer = new Peer(undefined, {
+    host: '/',
+    port: '443'
+});
+
+peer.on('open', id => {
+    console.log("معرف الصوت الخاص بي هو: " + id);
+    // نرسل الـ ID الخاص بالصوت للآخرين عبر السوكيت
+    socket.emit('join-room', ROOM_ID, id); 
+});
+
+// استقبال المكالمات
+peer.on('call', call => {
+    call.answer(myStream); // الرد بالبث الخاص بنا
+    const audio = document.createElement('audio');
+    call.on('stream', userAudioStream => {
+        addAudioStream(audio, userAudioStream);
     });
+});
+
+    // 2. السماح للآخرين بالاتصال بنا
+    socket.on('user-connected-voice', remoteUserId => {
+        connectToNewUser(remoteUserId);
+    });
+}
+
+function connectToNewUser(remoteUserId) {
+    navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+        const call = peer.call(remoteUserId, stream);
+        const audio = document.createElement('audio');
+        call.on('stream', userStream => addAudioStream(audio, userStream));
+        peers[remoteUserId] = call;
+    });
+}
+
+function addAudioStream(audio, stream) {
+    audio.srcObject = stream;
+    audio.style.display = 'none'; // لا نحتاج لرؤية عنصر الصوت
+    
+    audio.addEventListener('loadedmetadata', () => {
+        audio.play().catch(e => {
+            console.log("المتصفح منع التشغيل التلقائي، سيتم التشغيل عند أول ضغطة");
+            // حل مشكلة المنع: التشغيل عند أول نقرة في الصفحة
+            window.addEventListener('click', () => {
+                audio.play();
+            }, { once: true });
+        });
+    });
+
+    document.body.append(audio); // إضافة العنصر للصفحة ليتمكن من العمل
+}
+// تشغيل/إطفاء الميكروفون
+function toggleMic() {
+    if (!myStream) {
+        // إذا لم نكن قد حصلنا على إذن الميكروفون بعد
+        navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+            myStream = stream;
+            activateMic();
+        }).catch(err => alert("يرجى السماح بالوصول للميكروفون"));
+        return;
+    }
+
+    const enabled = myStream.getAudioTracks()[0].enabled;
+    if (enabled) {
+        myStream.getAudioTracks()[0].enabled = false;
+        document.getElementById('mic-btn').innerText = "🔇";
+        document.getElementById('mic-btn').classList.remove('mic-active');
+    } else {
+        activateMic();
+    }
+}
+
+function activateMic() {
+    myStream.getAudioTracks()[0].enabled = true;
+    document.getElementById('mic-btn').innerText = "🎙️";
+    document.getElementById('mic-btn').classList.add('mic-active');
 }
