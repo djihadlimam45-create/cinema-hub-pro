@@ -1,332 +1,58 @@
-/* --- 1. الإعدادات والمتغيرات الأساسية --- */
 :root {
     --primary: #e50914;
-    --primary-glow: rgba(229, 9, 20, 0.5);
-    --bg: #050505;
-    --glass: rgba(255, 255, 255, 0.08);
-    --glass-border: rgba(255, 255, 255, 0.15);
+    --bg: #0a0a0a;
+    --panel: #141414;
     --text: #ffffff;
-    --chat-width: 350px;
-    --accent-green: #2ecc71;
 }
-
-* { box-sizing: border-box; outline: none; }
 
 body {
-    margin: 0;
-    padding: 0;
-    background: var(--bg);
-    color: var(--text);
-    font-family: 'Segoe UI', Roboto, -apple-system, sans-serif;
-    height: 100vh;
-    width: 100vw;
-    overflow: hidden; /* يمنع التمرير خارج التطبيق */
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: 'Segoe UI', sans-serif; height: 100vh; overflow: hidden;
 }
 
-/* --- 2. الخلفية السينمائية المتحركة --- */
-.floating-background {
-    position: fixed;
-    inset: 0;
-    z-index: -1;
-    background: radial-gradient(circle at center, #1a1a1a 0%, #000 100%);
-    overflow: hidden;
-}
-
-.poster {
-    position: absolute;
-    width: 180px;
-    opacity: 0.15;
-    filter: blur(1px);
-    border-radius: 12px;
-    animation: floatAround 20s infinite linear alternate;
-}
-
-.p1 { top: 10%; left: 5%; animation-duration: 25s; }
-.p2 { top: 50%; left: 80%; animation-duration: 30s; }
-.p3 { top: 70%; left: 20%; animation-duration: 22s; }
-
-@keyframes floatAround {
-    from { transform: translate(0, 0) rotate(0deg); }
-    to { transform: translate(30px, 50px) rotate(10deg); }
-}
-
-/* --- 3. شاشة الدخول (Login Screen) --- */
+/* شاشة الدخول */
 .overlay {
-    position: fixed;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 1000;
-    background: rgba(0,0,0,0.85);
-    backdrop-filter: blur(10px);
+    position: fixed; inset: 0; background: rgba(0,0,0,0.9);
+    display: flex; align-items: center; justify-content: center; z-index: 9999;
 }
-
 .login-card {
-    background: rgba(20, 20, 20, 0.7);
-    padding: 40px;
-    width: 100%;
-    max-width: 400px;
-    border-radius: 24px;
-    border: 1px solid var(--glass-border);
-    text-align: center;
-    box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+    background: var(--panel); padding: 30px; border-radius: 20px;
+    width: 350px; text-align: center; border: 1px solid #333;
 }
+.avatar-picker img { width: 80px; height: 80px; border-radius: 50%; margin-bottom: 10px; }
+#avatar-presets img { width: 40px; cursor: pointer; margin: 5px; border-radius: 50%; }
 
-.login-card h1 { 
-    margin-bottom: 30px; 
-    background: linear-gradient(to bottom, #fff, #888);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-}
-
-.login-card input {
-    width: 100%;
-    padding: 14px;
-    margin-bottom: 15px;
-    background: rgba(0,0,0,0.5);
-    border: 1px solid var(--glass-border);
-    border-radius: 12px;
-    color: white;
-    font-size: 16px;
-}
-
-.btn-primary {
-    width: 100%;
-    padding: 15px;
-    background: var(--primary);
-    color: white;
-    border: none;
-    border-radius: 12px;
-    font-weight: bold;
-    cursor: pointer;
-    transition: 0.3s;
-    text-transform: uppercase;
-}
-
-.btn-primary:hover { transform: scale(1.02); background: #ff0a16; }
-
-/* --- 4. الهيكل الرئيسي للتطبيق --- */
-.app-container {
-    display: flex;
-    flex-direction: column;
-    height: 100vh;
-    padding: 15px;
-    gap: 15px;
-}
+/* الحاوية الرئيسية */
+.app-container { display: flex; flex-direction: column; height: 100vh; padding: 10px; gap: 10px; }
 
 header {
-    flex: 0 0 auto;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 10px 20px;
-    border-radius: 20px;
-    background: var(--glass);
-    backdrop-filter: blur(20px);
-    border: 1px solid var(--glass-border);
+    display: flex; justify-content: space-between; align-items: center;
+    background: var(--panel); padding: 10px 20px; border-radius: 15px;
 }
 
-main {
-    flex: 1;
-    display: flex;
-    gap: 15px;
-    overflow: hidden;
-}
+.search-area { width: 40%; position: relative; }
+#movieSearch { width: 100%; padding: 10px; border-radius: 8px; border: none; background: #222; color: white; }
 
-/* --- 5. البحث والنتائج --- */
-.search-box { position: relative; width: 40%; }
-#movieSearch, #directLinkInput {
-    width: 100%;
-    background: rgba(0,0,0,0.4);
-    border: 1px solid var(--glass-border);
-    color: white;
-    padding: 10px 15px;
-    border-radius: 10px;
-}
-
-.dropdown {
-    position: absolute;
-    top: 100%;
-    width: 100%;
-    max-height: 300px;
-    overflow-y: auto;
-    z-index: 100;
-    margin-top: 5px;
-    border-radius: 12px;
-}
-
-.search-item {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px;
-    cursor: pointer;
-    transition: 0.2s;
-}
-
-.search-item:hover { background: var(--primary); }
-.search-item img { width: 40px; height: 60px; border-radius: 5px; object-fit: cover; }
-
-/* --- 6. مشغل الفيديو --- */
-.video-section {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-}
-
-#video-wrapper {
-    flex: 1;
-    background: #000;
-    border-radius: 25px;
-    position: relative;
-    overflow: hidden;
-    box-shadow: 0 10px 40px rgba(0,0,0,0.8);
-}
-
-#video, #youtube-player, #iframe-slot iframe {
-    width: 100%;
-    height: 100%;
-    border: none;
-}
-
-#video-touch-layer {
-    position: absolute;
-    inset: 0;
-    z-index: 5;
-    cursor: pointer;
-}
-
-/* --- 7. قائمة المستخدمين وتأثير التحدث --- */
-#user-list { display: flex; gap: 10px; }
+/* قائمة المستخدمين (حل مشكلة الحجم) */
+#user-list { display: flex; gap: 10px; overflow-x: auto; }
 .avatar-container {
-    position: relative;
-    width: 50px; height: 50px;
-    border-radius: 50%;
-    border: 2px solid transparent;
-    transition: 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    width: 45px; height: 45px; position: relative;
+    border: 2px solid transparent; border-radius: 50%; transition: 0.3s;
 }
+.avatar-container img { width: 100%; height: 100%; border-radius: 50%; }
+.speaking { border-color: #2ecc71; box-shadow: 0 0 10px #2ecc71; transform: scale(1.1); }
 
-.avatar-img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+/* الفيديو والشات */
+main { display: flex; flex: 1; gap: 10px; overflow: hidden; }
+.video-container { flex: 3; display: flex; flex-direction: column; gap: 10px; }
+#video-wrapper { flex: 1; background: #000; border-radius: 15px; position: relative; overflow: hidden; }
 
-.user-name {
-    position: absolute;
-    bottom: -20px;
-    left: 50%;
-    transform: translateX(-50%);
-    font-size: 10px;
-    white-space: nowrap;
-}
+.chat-section { flex: 1; background: var(--panel); border-radius: 15px; display: flex; flex-direction: column; }
+#messages { flex: 1; padding: 10px; overflow-y: auto; }
+.input-area { padding: 10px; border-top: 1px solid #333; }
+#chatInput { width: 100%; padding: 10px; border-radius: 20px; border: none; background: #222; color: white; }
 
-/* نبض التحدث */
-.speaking {
-    border-color: var(--accent-green) !important;
-    box-shadow: 0 0 15px var(--accent-green);
-    transform: scale(1.1);
-}
-
-/* --- 8. الدردشة --- */
-aside {
-    width: var(--chat-width);
-    display: flex;
-    flex-direction: column;
-    border-radius: 25px;
-    background: rgba(10, 10, 10, 0.6);
-    border: 1px solid var(--glass-border);
-    backdrop-filter: blur(20px);
-}
-
-.chat-header { padding: 15px; text-align: center; border-bottom: 1px solid var(--glass-border); font-weight: bold; }
-
-#messages {
-    flex: 1;
-    padding: 15px;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-.msg { display: flex; gap: 10px; animation: slideIn 0.3s ease forwards; }
-.msg img { width: 35px; height: 35px; border-radius: 50%; }
-.msg-content {
-    background: rgba(255,255,255,0.05);
-    padding: 8px 12px;
-    border-radius: 15px;
-    border-top-right-radius: 2px;
-    font-size: 14px;
-    max-width: 80%;
-}
-
-.chat-input { padding: 15px; border-top: 1px solid var(--glass-border); }
-#chatInput {
-    width: 100%;
-    background: rgba(255,255,255,0.05);
-    border: none;
-    padding: 12px;
-    border-radius: 20px;
-    color: white;
-}
-
-/* --- 9. التفاعلات (Emojis) --- */
-.cinema-footer {
-    padding: 10px;
-    border-radius: 20px;
-    display: flex;
-    justify-content: center;
-}
-
-.reactions-bar { display: flex; gap: 10px; align-items: center; }
-.reactions-bar button {
-    background: var(--glass);
-    border: 1px solid var(--glass-border);
-    padding: 8px 15px;
-    border-radius: 12px;
-    cursor: pointer;
-    font-size: 20px;
-    transition: 0.2s;
-}
-
-.reactions-bar button:hover { background: var(--primary); transform: translateY(-3px); }
-
-.mic-active { background: var(--accent-green) !important; animation: pulse 1.5s infinite; }
-
-@keyframes pulse {
-    0% { box-shadow: 0 0 0 0px rgba(46, 204, 113, 0.4); }
-    100% { box-shadow: 0 0 0 10px rgba(46, 204, 113, 0); }
-}
-
-.floating-emoji {
-    position: absolute;
-    bottom: 50px;
-    font-size: 40px;
-    animation: emojiFloat 2s ease-out forwards;
-    pointer-events: none;
-    z-index: 10;
-}
-
-@keyframes emojiFloat {
-    0% { transform: translateY(0) scale(0.5); opacity: 0; }
-    20% { opacity: 1; transform: scale(1.2); }
-    100% { transform: translateY(-300px) scale(1.5); opacity: 0; }
-}
-
-/* --- 10. التجاوب (Responsive Design) --- */
-@media (max-width: 1024px) {
-    main { flex-direction: column; overflow-y: auto; }
-    aside { width: 100%; height: 400px; flex: none; }
-    .video-section { height: auto; flex: none; }
-    #video-wrapper { aspect-ratio: 16/9; }
-    .search-box { width: 100%; }
-    header { flex-direction: column; gap: 15px; }
-}
-
-@keyframes slideIn {
-    from { opacity: 0; transform: translateX(20px); }
-    to { opacity: 1; transform: translateX(0); }
-}
-
-/* تخصيص شريط التمرير */
-::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-thumb { background: var(--primary); border-radius: 10px; }
+/* أزرار التحكم */
+.controls-bar { display: flex; justify-content: space-between; padding: 10px; background: var(--panel); border-radius: 15px; }
+button { cursor: pointer; background: #333; border: none; color: white; padding: 8px 15px; border-radius: 8px; }
+#mic-btn.active { background: var(--primary); }

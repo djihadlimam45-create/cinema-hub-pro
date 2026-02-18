@@ -1,98 +1,65 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cinema Hub Pro</title>
-    <link rel="stylesheet" href="style.css">
-    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-    <script src="https://www.youtube.com/iframe_api"></script>
-    <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.18.2.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cinema Hub Pro</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <script src="https://www.youtube.com/iframe_api"></script>
+    <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.18.2.js"></script>
 </head>
 <body>
-    <div class="floating-background" id="bg-animation">
-        <img src="https://www.themoviedb.org/t/p/w600_and_h900_bestv2/36769.jpg" class="poster p1">
-        <img src="https://www.themoviedb.org/t/p/w600_and_h900_bestv2/v99p0p2A4Oa7Yj8J6D2k9V9A2Xo.jpg" class="poster p2">
-        <img src="https://www.themoviedb.org/t/p/w600_and_h900_bestv2/h9z79lRYslj79vT9vT9vT9vT9v.jpg" class="poster p3">
-    </div>
+    <div id="login-screen" class="overlay">
+        <div class="login-card">
+            <h1>Cinema Hub 🍿</h1>
+            <div class="avatar-picker">
+                <img id="preview" src="https://api.dicebear.com/7.x/avataaars/svg?seed=1">
+                <div id="avatar-presets"></div>
+            </div>
+            <input type="text" id="username" placeholder="اسمك المستعار">
+            <input type="text" id="room-id" placeholder="رقم الغرفة">
+            <input type="password" id="room-pass" placeholder="كلمة المرور">
+            <button onclick="join()" class="btn-primary">دخول الغرفة</button>
+        </div>
+    </div>
 
-    <div id="ambilight"></div>
+    <div class="app-container" id="main-app" style="display: none;">
+        <header>
+            <div class="search-area">
+                <input type="text" id="movieSearch" placeholder="ابحث عن فيلم أو ضع رابط مباشر...">
+                <div id="searchResults" class="dropdown"></div>
+            </div>
+            <div id="user-list"></div>
+        </header>
 
-    <div id="login-screen" class="overlay">
-        <div class="login-card glass">
-            <h1>Cinema Hub 🍿</h1>
-            <div class="profile-section">
-                <div class="profile-main">
-                    <div id="preview-container" class="avatar-container">
-                        <img id="preview" src="https://api.dicebear.com/7.x/avataaars/svg?seed=Lucky">
-                    </div>
-                    <input type="file" id="avatarInput" hidden accept="image/*">
-                    <label for="avatarInput" class="upload-btn">📸</label>
-                </div>
-                <div id="avatar-presets" class="presets"></div>
-            </div>
-            <input type="text" id="username" placeholder="اسمك المستعار">
-            <input type="text" id="room-id" placeholder="رقم الغرفة">
-            <input type="password" id="room-pass" placeholder="كلمة المرور">
-            <button onclick="join()" class="btn-primary">دخول السينما</button>
-        </div>
-    </div>
+        <main>
+            <div class="video-container">
+                <div id="video-wrapper">
+                    <video id="video" style="display:none;" controls></video>
+                    <div id="youtube-player"></div>
+                    <div id="iframe-slot"></div>
+                </div>
+                <div class="controls-bar">
+                    <div class="reactions">
+                        <button onclick="sendEmoji('🔥')">🔥</button>
+                        <button onclick="sendEmoji('😂')">😂</button>
+                        <button onclick="sendEmoji('🍿')">🍿</button>
+                    </div>
+                    <button id="mic-btn" onclick="toggleMic()">🔇</button>
+                </div>
+            </div>
 
-    <div class="app-container" id="main-app" style="display: none;">
-        <header class="glass">
-            <div class="search-box">
-                <input type="text" id="movieSearch" placeholder="ابحث عن فيلم... 🔍">
-                <div id="searchResults" class="dropdown glass"></div>
-                
-                <div class="direct-url-box" style="margin-top: 10px; display: flex; gap: 5px;">
-                    <input type="text" id="directLinkInput" placeholder="ضع رابط m3u8 أو mp4 هنا...">
-                    <button onclick="playDirectUrl()" class="mini-btn">تشغيل</button>
-                </div>
-            </div>
+            <aside class="chat-section">
+                <div id="messages"></div>
+                <div class="input-area">
+                    <input type="text" id="chatInput" placeholder="اكتب شيئاً...">
+                </div>
+            </aside>
+        </main>
+    </div>
 
-            <div id="user-list">
-                <div class="avatar-container" id="local-user">
-                    <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Lucky" class="avatar-img" id="current-avatar">
-                    <div class="user-name">أنت</div>
-                    <div class="status-dot"></div>
-                </div>
-            </div>
-        </header>
-
-        <main>
-            <div class="video-section">
-                <div id="video-wrapper">
-                    <div id="video-touch-layer" onclick="handleLayerClick()"></div>
-                    <video id="video" style="display:none;" controls></video>
-                    <div id="youtube-player" style="display:none;"></div>
-                    <div id="iframe-slot"></div> 
-                    <div id="emoji-display"></div>
-                </div>
-                
-                <div class="cinema-footer glass">
-                    <div class="reactions-bar">
-                        <button onclick="sendEmoji('🔥')">🔥</button>
-                        <button onclick="sendEmoji('😂')">😂</button>
-                        <button onclick="sendEmoji('😱')">😱</button>
-                        <button onclick="sendEmoji('❤️')">❤️</button>
-                        <button onclick="sendEmoji('🍿')">🍿</button>
-                        <button id="mic-btn" onclick="toggleMic()" class="mic-btn">🔇</button>
-                        <button onclick="copyInviteLink()" class="share-btn" title="نسخ رابط الغرفة">🔗</button>
-                    </div>
-                </div>
-            </div>
-
-            <aside class="glass">
-                <div class="chat-header">دردشة الغرفة</div>
-                <div id="messages"></div>
-                <div class="chat-input">
-                    <input type="text" id="chatInput" placeholder="اكتب رسالة...">
-                </div>
-            </aside>
-        </main>
-    </div>
-
-    <script src="/socket.io/socket.io.js"></script>
-    <script src="script.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="script.js"></script>
 </body>
 </html>
