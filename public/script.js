@@ -49,6 +49,18 @@ function join() {
     currentUser.name = name;
     currentUser.avatar = currentUser.avatar || document.getElementById('preview').src;
     socket.emit("join-room", { roomId: room, password: pass, user: currentUser });
+    {
+    // إيقاظ محرك الصوت (حل سحري لمشاكل المتصفحات)
+    if (AgoraRTC.getAudioContext) {
+        AgoraRTC.getAudioContext().resume().then(() => {
+            console.log("تم تفعيل محرك الصوت بنجاح");
+        });
+    }
+    
+    // بقية كود الدخول الخاص بك...
+    const name = document.getElementById('username').value;
+    // ... إلخ
+}
 }
 
 socket.on("join-success", () => {
@@ -89,6 +101,7 @@ socket.on("update-users", users => {
 // استقبال خريطة الربط للتوهج
 socket.on("update-agora-map", map => {
     agoraToSocketMap = map;
+    console.log("خريطة المستخدمين المحدثة:", map);
 });
 
 // --- 4. نظام الصوت (Agora) وتوهج الأفاتار ---
@@ -115,10 +128,16 @@ client.on("volume-indicator", volumes => {
 });
 
 client.on("user-published", async (user, mediaType) => {
+    // الاشتراك في المسار القادم من الشخص الآخر
     await client.subscribe(user, mediaType);
-    if (mediaType === "audio") user.audioTrack.play();
-});
+    console.log("تم الاشتراك في ميديا المستخدم:", user.uid);
 
+    if (mediaType === "audio") {
+        // تشغيل الصوت فوراً
+        user.audioTrack.play();
+        console.log("صوت الصديق يعمل الآن...");
+    }
+});
 async function toggleMic() {
     const micBtn = document.getElementById('mic-btn');
     
