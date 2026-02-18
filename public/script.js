@@ -12,8 +12,6 @@ let ytPlayer;
 let isYtReady = false;
 let hls = null;
 const videoElement = document.getElementById('video');
-
-// جسر الربط: يربط رقم الصوت (UID) بمعرف المستخدم (Socket ID)
 let agoraToSocketMap = {}; 
 
 // --- 2. نظام الأفاتارات وتجهيز الدخول ---
@@ -58,7 +56,6 @@ socket.on("join-success", () => {
 });
 
 // --- 3. نظام المزامنة والظهور (Socket.io) ---
-
 socket.on("update-users", users => {
     const userList = document.getElementById('user-list');
     userList.innerHTML = `
@@ -87,7 +84,6 @@ socket.on("update-agora-map", map => {
 });
 
 // --- 4. نظام الصوت (Agora) وتوهج الأفاتار ---
-
 client.enableAudioVolumeIndicator();
 
 client.on("volume-indicator", volumes => {
@@ -99,7 +95,6 @@ client.on("volume-indicator", volumes => {
             const socketId = agoraToSocketMap[volume.uid];
             if (socketId) elementId = `user-${socketId}`;
         }
-
         const el = document.getElementById(elementId);
         if (el) {
             if (volume.level > 40) el.classList.add('speaking');
@@ -108,10 +103,9 @@ client.on("volume-indicator", volumes => {
     });
 });
 
-// إصلاح: استقبال المايكروفون من الآخرين تلقائياً
+// [إصلاح] سماع الآخرين تلقائياً عند انضمامهم
 client.on("user-published", async (user, mediaType) => {
     await client.subscribe(user, mediaType);
-    console.log("تم استقبال صوت مستخدم جديد");
     if (mediaType === "audio") {
         user.audioTrack.play();
     }
@@ -119,7 +113,6 @@ client.on("user-published", async (user, mediaType) => {
 
 async function toggleMic() {
     const micBtn = document.getElementById('mic-btn');
-    
     if (!localAudioTrack) {
         try {
             localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
@@ -135,10 +128,8 @@ async function toggleMic() {
                 const uid = await client.join(APP_ID, CHANNEL, null, null);
                 socket.emit("map-agora-id", { uid: uid });
             }
-            
             await client.publish(localAudioTrack);
             await localAudioTrack.setEnabled(true);
-            
             isMicOn = true;
             micBtn.classList.add('mic-active');
             micBtn.innerHTML = "🎤"; 
@@ -156,7 +147,6 @@ async function toggleMic() {
 }
 
 // --- 5. البحث وتشغيل الأفلام والمزامنة ---
-
 document.getElementById('movieSearch').oninput = async (e) => {
     const query = e.target.value;
     const resDiv = document.getElementById('searchResults');
@@ -175,8 +165,8 @@ document.getElementById('movieSearch').oninput = async (e) => {
             const type = m.media_type === 'movie' ? 'movie' : 'tv';
             const url = `https://vidsrc.me/embed/${type}?tmdb=${m.id}`;
             socket.emit("change-video", url);
-            resDiv.style.display = "none";
-            document.getElementById('movieSearch').value = ""; // تفريغ خانة البحث بعد الاختيار
+            resDiv.style.display = "none"; // [إصلاح] إخفاء القائمة بعد الاختيار
+            document.getElementById('movieSearch').value = ""; 
         };
         resDiv.appendChild(div);
     });
@@ -212,19 +202,18 @@ function handleSource(url) {
 
 socket.on("video-changed", url => handleSource(url));
 
-// تحسين المزامنة: إرسال الحالة
+// [إصلاح المزامنة] إرسال التحكم
 videoElement.onplay = () => socket.emit("video-control", { type: 'play', time: videoElement.currentTime });
 videoElement.onpause = () => socket.emit("video-control", { type: 'pause', time: videoElement.currentTime });
 
-// تحسين المزامنة: الاستقبال بمنطق العتبة الزمنية
+// [إصلاح المزامنة] الاستقبال السلس (Threshold)
 socket.on("video-sync", data => {
     if (videoElement.style.display !== "none") {
-        if (data.type === 'play') videoElement.play();
-        if (data.type === 'pause') videoElement.pause();
+        if (data.type === 'play' && videoElement.paused) videoElement.play();
+        if (data.type === 'pause' && !videoElement.paused) videoElement.pause();
         
-        // لا نقوم بالقفز الزمني (Seek) إلا إذا كان الفرق أكثر من 2 ثانية لمنع التقطيع
-        const diff = Math.abs(videoElement.currentTime - data.time);
-        if (diff > 2) {
+        // لا يتم القفز الزمني إلا إذا كان الفرق أكبر من ثانيتين لتجنب التقطيع
+        if (Math.abs(videoElement.currentTime - data.time) > 2) {
             videoElement.currentTime = data.time;
         }
     }
@@ -236,7 +225,6 @@ function playDirectUrl() {
 }
 
 // --- 6. الشات والتفاعلات ---
-
 function sendEmoji(e) { socket.emit("reaction", e); showEmoji(e); }
 socket.on("reaction", d => showEmoji(d.emoji));
 function showEmoji(e) {
