@@ -292,20 +292,22 @@ socket.on("chat-msg", (d) => {
     const msgContainer = document.getElementById('messages');
     
 let botContent = "";
-    if (d.isSuggestion) {
-        // نستخدم ID فريد مبني على وقت الرسالة
-        const uniqueId = "btn-" + Date.now(); 
-        botContent = `
-            <div class="bot-suggestion-card">
-                <img src="${d.poster}" class="mini-poster" style="display:block; width:120px; margin: 0 auto 10px;">
-                <button id="${uniqueId}" 
-                        onclick="playMovieDirectly('${d.suggestion}', '${uniqueId}')" 
-                        class="bot-play-btn">
-                    ▶️ تشغيل الفيلم للجميع
-                </button>
-            </div>
-        `;
-    }
+if (d.isSuggestion && d.poster) { // أضفنا تأكيد وجود البوستر
+    const uniqueId = "btn-" + Date.now();
+    botContent = `
+        <div class="bot-suggestion-card" style="text-align: center; background: #1a1a1a; padding: 15px; border-radius: 12px; border: 1px solid #e50914; margin-top: 10px;">
+            <img src="${d.poster}" 
+                 class="mini-poster" 
+                 style="width: 140px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.5);"
+                 onerror="this.src='https://placehold.co/200x300/222/fff?text=No+Poster'">
+            <button id="${uniqueId}" 
+                    onclick="playMovieDirectly('${d.suggestion}', '${uniqueId}')" 
+                    class="bot-play-btn" 
+                    style="display: block; width: 100%; margin-top: 12px; background: #e50914; color: white; border: none; padding: 10px; border-radius: 6px; cursor: pointer; font-weight: bold;">
+                ▶️ تشغيل الفيلم للجميع
+            </button>
+        </div>`;
+}
 
     msgContainer.innerHTML += `
         <div class="msg animate-in">

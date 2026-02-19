@@ -105,20 +105,25 @@ async function suggestRandomMovie(roomId) {
 }
 
 // دالة موحدة لإرسال كارت الفيلم
+// في server.js
 function sendMovieToRoom(roomId, movie, intro) {
+    // 1. تأمين رابط الفيديو
     const videoUrl = `https://vidsrc.me/embed/movie?tmdb=${movie.id}`;
     
-    // تأكد من بناء الرابط يدوياً هنا لضمان وصوله للمتصفح
+    // 2. تأمين رابط البوستر (استخدم رابط مباشر لـ TMDB أو بديل موثوق)
     const posterUrl = movie.poster_path 
         ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` 
-        : `https://placehold.co/200x300/222/fff?text=No+Poster`; 
+        : `https://placehold.co/200x300/222/fff?text=No+Poster`; // رابط بديل يعمل بشكل أفضل
 
     io.to(roomId).emit("chat-msg", { 
         text: `${intro} **${movie.title}** 🎬`,
         suggestion: videoUrl,
         isSuggestion: true,
-        poster: posterUrl, // هذا السطر هو الأهم
-        user: { name: "الذكاء الاصطناعي 🤖", avatar: "https://api.dicebear.com/7.x/bottts/svg?seed=ai" } 
+        poster: posterUrl, 
+        user: { 
+            name: "الذكاء الاصطناعي 🤖", 
+            avatar: "https://api.dicebear.com/7.x/bottts/svg?seed=ai" 
+        } 
     });
 }
 
