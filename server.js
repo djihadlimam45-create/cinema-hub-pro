@@ -50,13 +50,14 @@ io.on("connection", (socket) => {
         }
     });
 
-    socket.on("change-video", (url) => {
-        const roomId = socket.userData?.roomId;
-        if (roomId) {
-            rooms[roomId].currentVideo = url;
-            io.to(roomId).emit("video-changed", url);
-        }
-    });
+  socket.on("change-video", (url) => {
+    const roomId = socket.userData?.roomId;
+    if (roomId) {
+        // السيرفر يحفظ الرابط الحالي ويرسله للجميع فوراً
+        rooms[roomId].currentVideo = url;
+        io.to(roomId).emit("video-changed", url);
+    }
+});
 
     socket.on("video-control", (data) => {
         const roomId = socket.userData?.roomId;

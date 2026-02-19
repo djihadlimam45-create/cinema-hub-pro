@@ -715,18 +715,19 @@ aside {
 .bot-play-btn {
     display: block;
     margin-top: 10px;
-    background: #27ae60;
+    background: linear-gradient(45deg, #e50914, #ff4d4d);
     color: white;
     border: none;
-    padding: 5px 10px;
-    border-radius: 8px;
+    padding: 8px 12px;
+    border-radius: 20px;
     cursor: pointer;
-    font-size: 12px;
+    font-size: 11px;
     font-weight: bold;
+    box-shadow: 0 4px 10px rgba(229, 9, 20, 0.3);
     transition: 0.3s;
 }
 
 .bot-play-btn:hover {
-    background: #2ecc71;
     transform: scale(1.05);
+    background: linear-gradient(45deg, #ff4d4d, #e50914);
 }

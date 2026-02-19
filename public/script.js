@@ -1,4 +1,6 @@
 // --- 1. التعريفات الأساسية والمتغيرات العالمية ---
+// أضف هذا السطر في أول الملف تماماً
+let isHost = false;
 const socket = io();
 const client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
 const TMDB_KEY = "4a71b39887f9b5dd489791402728ab1a";
@@ -287,11 +289,10 @@ document.getElementById('chatInput').onkeypress = (e) => {
 socket.on("chat-msg", d => {
     const msg = document.getElementById('messages');
     
-    // إنشاء عنصر الرسالة
+    // أي شخص سيرى الزر الآن لأننا حذفنا شرط isHost
     let botBtn = "";
-    // إذا كانت الرسالة اقتراحاً من البوت وأنت الآدمن، أظهر زر التشغيل
-    if (d.isSuggestion && isHost) {
-        botBtn = `<button onclick="playSuggestedMovie('${d.suggestion}')" class="bot-play-btn">▶️ تشغيل الفيلم الآن</button>`;
+    if (d.isSuggestion) {
+        botBtn = `<button onclick="playMovieDirectly('${d.suggestion}')" class="bot-play-btn">▶️ تشغيل الاقتراح للجميع</button>`;
     }
 
     msg.innerHTML += `
@@ -309,14 +310,13 @@ socket.on("chat-msg", d => {
     msg.scrollTop = msg.scrollHeight;
 });
 
-// وظيفة تشغيل الفيلم المقترح (للآدمن)
-function playSuggestedMovie(url) {
-    if (isHost) {
-        socket.emit("change-video", url);
-        // اختياري: إرسال رسالة شكر للبوت
-        socket.emit("chat-msg", "شكراً أيها البوت، تم اختيار الفيلم! ✅");
-    }
+// دالة التشغيل المباشر (متاحة للجميع)
+function playMovieDirectly(url) {
+    // إرسال الأمر للسيرفر لتغيير الفيديو عند الكل
+    socket.emit("change-video", url);
+    console.log("تم طلب تشغيل فيلم من البوت:", url);
 }
+
 function copyInviteLink() {
     const inviteUrl = `${window.location.origin}?room=${document.getElementById('room-id').value || 'main'}`;
     navigator.clipboard.writeText(inviteUrl).then(() => alert("تم نسخ رابط الدعوة! ✅"));
