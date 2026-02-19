@@ -287,35 +287,34 @@ document.getElementById('chatInput').onkeypress = (e) => {
     }
 };
 socket.on("chat-msg", (d) => {
-    const msgContainer = document.getElementById('messages');
+    const msgContainer = document.getElementById('messages'); // تأكد أن ID حاوية الشات عندك هو messages
     
-    // إنشاء محتوى إضافي إذا كان هناك اقتراح من البوت
     let botContent = "";
     if (d.isSuggestion) {
-        const uniqueId = "btn-" + Date.now(); // معرف فريد للزر
+        const uniqueId = "btn-" + Date.now(); 
         botContent = `
-            <div class="bot-suggestion-card">
-                <img src="${d.poster}" class="mini-poster" onerror="this.src='https://via.placeholder.com/150x225?text=No+Poster'">
-                <button id="${uniqueId}" onclick="playMovieDirectly('${d.suggestion}', '${uniqueId}')" class="bot-play-btn">
+            <div class="bot-suggestion-card" style="margin-top: 10px; text-align: center; background: #1a1a1a; padding: 10px; border-radius: 10px; border: 1px solid #e50914;">
+                <img src="${d.poster}" class="mini-poster" style="width: 120px; border-radius: 5px;" onerror="this.src='https://via.placeholder.com/150x225?text=No+Poster'">
+                <button id="${uniqueId}" onclick="playMovieDirectly('${d.suggestion}', '${uniqueId}')" class="bot-play-btn" style="display: block; width: 100%; margin-top: 10px; background: #e50914; color: white; border: none; padding: 8px; border-radius: 5px; cursor: pointer;">
                     ▶️ تشغيل الفيلم للجميع
                 </button>
             </div>
         `;
     }
 
-    // عرض الرسالة (تأكد من أن أسماء الكلاسات تطابق تنسيقك)
+    // هنا نقوم بإضافة الرسالة الأصلية + محتوى البوت (إن وجد) إلى الشاشة
     msgContainer.innerHTML += `
-        <div class="msg animate-in">
-            <img src="${d.user.avatar}" class="chat-avatar">
+        <div class="msg">
             <div class="msg-body">
-                <b class="user-name">${d.user.name}</b>
+                <b>${d.user.name}:</b>
                 <div class="msg-content">
                     ${d.text}
-                    ${botContent}
+                    ${botContent} 
                 </div>
             </div>
         </div>`;
     
+    // النزول لآخر رسالة تلقائياً
     msgContainer.scrollTop = msgContainer.scrollHeight;
 });
 
