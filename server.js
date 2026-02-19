@@ -50,12 +50,19 @@ io.on("connection", (socket) => {
         }
     });
 
-  socket.on("change-video", (url) => {
+socket.on("change-video", (url) => {
     const roomId = socket.userData?.roomId;
     if (roomId) {
-        // السيرفر يحفظ الرابط الحالي ويرسله للجميع فوراً
-        rooms[roomId].currentVideo = url;
-        io.to(roomId).emit("video-changed", url);
+        // نرسل للجميع أمر ببدء العد التنازلي مع الرابط
+        io.to(roomId).emit("start-countdown", url);
+    }
+});
+
+socket.on("disable-bot-button", (buttonId) => {
+    const roomId = socket.userData?.roomId;
+    if (roomId) {
+        // إخبار الجميع في الغرفة بإخفاء الزر صاحب هذا الـ ID
+        io.to(roomId).emit("hide-button", buttonId);
     }
 });
 

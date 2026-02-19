@@ -289,12 +289,14 @@ document.getElementById('chatInput').onkeypress = (e) => {
 socket.on("chat-msg", d => {
     const msg = document.getElementById('messages');
     
-    // أي شخص سيرى الزر الآن لأننا حذفنا شرط isHost
     let botBtn = "";
     if (d.isSuggestion) {
-        botBtn = `<button onclick="playMovieDirectly('${d.suggestion}')" class="bot-play-btn">▶️ تشغيل الاقتراح للجميع</button>`;
+        // ننشئ ID فريد لكل زر بناءً على الوقت
+        const uniqueId = "btn-" + Date.now(); 
+        botBtn = `<button id="${uniqueId}" onclick="playMovieDirectly('${d.suggestion}', '${uniqueId}')" class="bot-play-btn">▶️ تشغيل الاقتراح للجميع</button>`;
     }
 
+    // ... باقي كود إضافة الرسالة للشاشة كما هو ...
     msg.innerHTML += `
         <div class="msg">
             <img src="${d.user.avatar}">
@@ -306,17 +308,63 @@ socket.on("chat-msg", d => {
                 </div>
             </div>
         </div>`;
-    
     msg.scrollTop = msg.scrollHeight;
 });
 
-// دالة التشغيل المباشر (متاحة للجميع)
-function playMovieDirectly(url) {
-    // إرسال الأمر للسيرفر لتغيير الفيديو عند الكل
-    socket.emit("change-video", url);
-    console.log("تم طلب تشغيل فيلم من البوت:", url);
+socket.on("start-countdown", (url) => {
+    const overlay = document.getElementById('countdown-overlay');
+    const numberDisplay = document.getElementById('countdown-number');
+    let count = 5; // عدد الثواني
+
+    overlay.style.display = 'flex';
+    numberDisplay.innerText = count;
+
+    const timer = setInterval(() => {
+        count--;
+        numberDisplay.innerText = count;
+
+        if (count <= 0) {
+            clearInterval(timer);
+            overlay.style.display = 'none';
+            
+            // الآن نقوم بتشغيل الفيلم فعلياً
+            renderVideo(url); 
+        }
+    }, 1000);
+});
+
+// دالة مساعدة لتشغيل الفيديو (تأكد أن أسماء الـ IDs تطابق ما لديك)
+function renderVideo(url) {
+    const iframe = document.getElementById('iframe-slot'); // أو مشغل الفيديو الخاص بك
+    if (url.includes('iframe') || url.includes('vidsrc')) {
+        iframe.innerHTML = `<iframe src="${url}" allowfullscreen allow="autoplay"></iframe>`;
+    } else {
+        // إذا كان رابط مباشر mp4
+        const video = document.getElementById('video');
+        video.src = url;
+        video.play();
+    }
 }
 
+// دالة التشغيل المباشر (متاحة للجميع)
+function playMovieDirectly(url, buttonId) {
+    // 1. إرسال أمر تشغيل الفيديو
+    socket.emit("change-video", url);
+
+    // 2. إرسال أمر لإخفاء الزر عند الجميع (باستخدام معرف فريد)
+    socket.emit("disable-bot-button", buttonId);
+}
+
+// استقبال أمر إخفاء الزر
+socket.on("hide-button", (buttonId) => {
+    const btn = document.getElementById(buttonId);
+    if (btn) {
+        btn.disabled = true;
+        btn.style.background = "#555";
+        btn.innerHTML = "✅ تم بدء هذا الفيلم";
+        btn.style.cursor = "default";
+    }
+});
 function copyInviteLink() {
     const inviteUrl = `${window.location.origin}?room=${document.getElementById('room-id').value || 'main'}`;
     navigator.clipboard.writeText(inviteUrl).then(() => alert("تم نسخ رابط الدعوة! ✅"));
