@@ -291,16 +291,20 @@ document.getElementById('chatInput').onkeypress = (e) => {
 socket.on("chat-msg", (d) => {
     const msgContainer = document.getElementById('messages');
     
-    let botContent = "";
+let botContent = "";
     if (d.isSuggestion) {
-        const uniqueId = "btn-" + Date.now();
+        // نستخدم ID فريد مبني على وقت الرسالة
+        const uniqueId = "btn-" + Date.now(); 
         botContent = `
             <div class="bot-suggestion-card">
-                <img src="${d.poster}" class="mini-poster" onerror="this.src='https://via.placeholder.com/150x225?text=No+Poster'">
-                <button id="${uniqueId}" onclick="playMovieDirectly('${d.suggestion}', '${uniqueId}')" class="bot-play-btn">
+                <img src="${d.poster}" class="mini-poster" style="display:block; width:120px; margin: 0 auto 10px;">
+                <button id="${uniqueId}" 
+                        onclick="playMovieDirectly('${d.suggestion}', '${uniqueId}')" 
+                        class="bot-play-btn">
                     ▶️ تشغيل الفيلم للجميع
                 </button>
-            </div>`;
+            </div>
+        `;
     }
 
     msgContainer.innerHTML += `
@@ -362,23 +366,23 @@ socket.on("start-countdown", (url) => {
 
 // دالة معالجة تشغيل الفيديو النهائي
 function renderVideo(url) {
-    const iframeSlot = document.getElementById('iframe-slot');
-    const ytArea = document.getElementById('youtube-player');
-    
-    // تنظيف الحاويات قبل التشغيل الجديد
-    ytArea.style.display = "none";
-    videoElement.style.display = "none";
-    iframeSlot.innerHTML = "";
+    if (!url || url === "undefined") return console.error("رابط غير صالح!");
 
-    if (url.includes('vidsrc') || url.includes('iframe')) {
+    const iframeSlot = document.getElementById('iframe-slot');
+    const videoTag = document.getElementById('video');
+    const ytArea = document.getElementById('youtube-player');
+
+    // إخفاء الكل أولاً
+    [iframeSlot, videoTag, ytArea].forEach(el => { if(el) el.style.display = 'none'; });
+
+    if (url.includes('vidsrc') || url.includes('embed')) {
+        iframeSlot.style.display = 'block';
         iframeSlot.innerHTML = `<iframe src="${url}" allowfullscreen allow="autoplay" style="width:100%; height:100%; border:none;"></iframe>`;
-    } else if (url.includes('youtube') || url.includes('youtu.be')) {
-        handleSource(url); // استخدام الدالة الأصلية لليوتيوب
     } else {
-        // روابط mp4 المباشرة
-        videoElement.style.display = "block";
-        videoElement.src = url;
-        videoElement.play();
+        // التعامل مع الروابط المباشرة (مثل mp4 في صورتك الرابعة)
+        videoTag.style.display = 'block';
+        videoTag.src = url;
+        videoTag.play();
     }
 }
 
