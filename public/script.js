@@ -1,9 +1,7 @@
 // --- 1. التعريفات الأساسية والمتغيرات العالمية ---
-// أضف هذا السطر في أول الملف تماماً
-let isHost = false;
 const socket = io();
 const client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
-const TMDB_KEY = "63c062a2d817029ee9fe7760c74dea80";
+const TMDB_KEY = "4a71b39887f9b5dd489791402728ab1a";
 const APP_ID = "97b6d211d09447b480ae3b8b62cc4a68";
 const CHANNEL = "main_room";
 
@@ -283,126 +281,15 @@ function showEmoji(e) {
 
 document.getElementById('chatInput').onkeypress = (e) => {
     if(e.key === "Enter" && e.target.value !== "") {
-        socket.emit("chat-msg", e.target.value); 
-        e.target.value = "";
+        socket.emit("chat-msg", e.target.value); e.target.value = "";
     }
 };
-
-socket.on("chat-msg", (d) => {
-    const msgContainer = document.getElementById('messages');
-    
-let botContent = "";
-    if (d.isSuggestion) {
-        // نستخدم ID فريد مبني على وقت الرسالة
-        const uniqueId = "btn-" + Date.now(); 
-        botContent = `
-            <div class="bot-suggestion-card">
-                <img src="${d.poster}" class="mini-poster" style="display:block; width:120px; margin: 0 auto 10px;">
-                <button id="${uniqueId}" 
-                        onclick="playMovieDirectly('${d.suggestion}', '${uniqueId}')" 
-                        class="bot-play-btn">
-                    ▶️ تشغيل الفيلم للجميع
-                </button>
-            </div>
-        `;
-    }
-
-    msgContainer.innerHTML += `
-        <div class="msg animate-in">
-            <div class="msg-body">
-                <b>${d.user.name}:</b>
-                <div class="msg-content">
-                    ${d.text}
-                    ${botContent} 
-                </div>
-            </div>
-        </div>`;
-    
-    msgContainer.scrollTop = msgContainer.scrollHeight;
+socket.on("chat-msg", d => {
+    const msg = document.getElementById('messages');
+    msg.innerHTML += `<div class="msg"><img src="${d.user.avatar}"><div class="msg-body"><b>${d.user.name}</b><div class="msg-content">${d.text}</div></div></div>`;
+    msg.scrollTop = msg.scrollHeight;
 });
 
-// دالة التشغيل الموحدة (ترسل الأوامر للسيرفر)
-// دالة التشغيل التي يضغط عليها المستخدم في الشات
-function playMovieDirectly(url, buttonId) {
-    if (!url || url === "undefined") {
-        console.error("خطأ: رابط الفيلم غير موجود!");
-        return;
-    }
-
-    // 1. إخبار السيرفر بتغيير الفيديو للجميع (سيقوم السيرفر بإرسال أمر العد التنازلي)
-    socket.emit("change-video", url);
-
-    // 2. إخبار السيرفر بتعطيل هذا الزر عند الجميع لعدم التكرار
-    socket.emit("disable-bot-button", buttonId);
-}
-// استقبال أمر إخفاء الزر من السيرفر
-socket.on("hide-button", (buttonId) => {
-    const btn = document.getElementById(buttonId);
-    if (btn) {
-        btn.disabled = true;
-        btn.style.background = "#444";
-        btn.innerHTML = "✅ تم بدء هذا العرض";
-        btn.style.cursor = "default";
-    }
-});
-
-// استقبال أمر بدء العد التنازلي
-socket.on("start-countdown", (url) => {
-    const overlay = document.getElementById('countdown-overlay');
-    const numberDisplay = document.getElementById('countdown-number');
-    if(!overlay || !numberDisplay) return;
-
-    let count = 5;
-    overlay.style.display = 'flex';
-    numberDisplay.innerText = count;
-
-    const timer = setInterval(() => {
-        count--;
-        numberDisplay.innerText = count;
-
-        if (count <= 0) {
-            clearInterval(timer);
-            overlay.style.display = 'none';
-            // تشغيل الفيديو النهائي
-            renderVideo(url); 
-        }
-    }, 1000);
-});
-
-// دالة معالجة تشغيل الفيديو النهائي
-function renderVideo(url) {
-    if (!url || url === "undefined") return console.error("رابط غير صالح!");
-
-    const iframeSlot = document.getElementById('iframe-slot');
-    const videoTag = document.getElementById('video');
-    const ytArea = document.getElementById('youtube-player');
-
-    // إخفاء الكل أولاً
-    [iframeSlot, videoTag, ytArea].forEach(el => { if(el) el.style.display = 'none'; });
-
-    if (url.includes('vidsrc') || url.includes('embed')) {
-        iframeSlot.style.display = 'block';
-        iframeSlot.innerHTML = `<iframe src="${url}" allowfullscreen allow="autoplay" style="width:100%; height:100%; border:none;"></iframe>`;
-    } else {
-        // التعامل مع الروابط المباشرة (مثل mp4 في صورتك الرابعة)
-        videoTag.style.display = 'block';
-        videoTag.src = url;
-        videoTag.play();
-    }
-}
-
-
-
-// استقبال أمر إخفاء الزر
-socket.on("hide-button", (buttonId) => {
-    const btn = document.getElementById(buttonId);
-    if (btn) {
-        btn.disabled = true;
-        btn.style.background = "#555";
-        btn.innerHTML = "✅ تم بدء هذا الفيلم";
-        btn.style.cursor = "default";
-    }
-});
 function copyInviteLink() {
     const inviteUrl = `${window.location.origin}?room=${document.getElementById('room-id').value || 'main'}`;
     navigator.clipboard.writeText(inviteUrl).then(() => alert("تم نسخ رابط الدعوة! ✅"));
