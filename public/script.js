@@ -286,30 +286,46 @@ document.getElementById('chatInput').onkeypress = (e) => {
         socket.emit("chat-msg", e.target.value); e.target.value = "";
     }
 };
-socket.on("chat-msg", d => {
-    const msg = document.getElementById('messages');
+socket.on("chat-msg", (d) => {
+    const msgContainer = document.getElementById('messages');
     
-    let botBtn = "";
+    // إنشاء محتوى إضافي إذا كان هناك اقتراح من البوت
+    let botContent = "";
     if (d.isSuggestion) {
-        // ننشئ ID فريد لكل زر بناءً على الوقت
-        const uniqueId = "btn-" + Date.now(); 
-        botBtn = `<button id="${uniqueId}" onclick="playMovieDirectly('${d.suggestion}', '${uniqueId}')" class="bot-play-btn">▶️ تشغيل الاقتراح للجميع</button>`;
+        const uniqueId = "btn-" + Date.now(); // معرف فريد للزر
+        botContent = `
+            <div class="bot-suggestion-card">
+                <img src="${d.poster}" class="mini-poster" onerror="this.src='https://via.placeholder.com/150x225?text=No+Poster'">
+                <button id="${uniqueId}" onclick="playMovieDirectly('${d.suggestion}', '${uniqueId}')" class="bot-play-btn">
+                    ▶️ تشغيل الفيلم للجميع
+                </button>
+            </div>
+        `;
     }
 
-    // ... باقي كود إضافة الرسالة للشاشة كما هو ...
-    msg.innerHTML += `
-        <div class="msg">
-            <img src="${d.user.avatar}">
+    // عرض الرسالة (تأكد من أن أسماء الكلاسات تطابق تنسيقك)
+    msgContainer.innerHTML += `
+        <div class="msg animate-in">
+            <img src="${d.user.avatar}" class="chat-avatar">
             <div class="msg-body">
-                <b>${d.user.name}</b>
+                <b class="user-name">${d.user.name}</b>
                 <div class="msg-content">
                     ${d.text}
-                    ${botBtn}
+                    ${botContent}
                 </div>
             </div>
         </div>`;
-    msg.scrollTop = msg.scrollHeight;
+    
+    msgContainer.scrollTop = msgContainer.scrollHeight;
 });
+
+// دالة التشغيل التي تطلق العد التنازلي
+function playMovieDirectly(url, buttonId) {
+    // إخفاء الزر عند الجميع لعدم التكرار
+    socket.emit("disable-bot-button", buttonId);
+    // بدء العد التنازلي والتشغيل
+    socket.emit("change-video", url);
+}
 
 socket.on("start-countdown", (url) => {
     const overlay = document.getElementById('countdown-overlay');

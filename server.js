@@ -1,3 +1,4 @@
+const axios = require('axios');
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
@@ -57,6 +58,63 @@ socket.on("change-video", (url) => {
         io.to(roomId).emit("start-countdown", url);
     }
 });
+
+// تأكد من تثبيت axios عبر: npm install axios
+const axios = require('axios');
+const TMDB_KEY = "4a71b39887f9b5dd489791402728ab1a"; // استبدله بمفتاحك لاحقاً
+
+socket.on("chat-msg", async (text) => {
+    const roomId = socket.userData?.roomId;
+    if (!roomId) return;
+
+    // إرسال رسالة المستخدم الأصلية
+    io.to(roomId).emit("chat-msg", { text, user: socket.userData });
+
+    const msg = text.trim().toLowerCase();
+
+    // حالة 1: البحث عن فيلم محدد (مثال: بوت ابحث عن Batman)
+    if (msg.startsWith("بوت ابحث عن")) {
+        const query = msg.replace("بوت ابحث عن", "").trim();
+        searchAndSendMovie(roomId, query);
+    } 
+    // حالة 2: اقتراح عشوائي (مثال: بوت اقترح فيلم)
+    else if (msg.includes("بوت") && (msg.includes("اقترح") || msg.includes("فيلم"))) {
+        suggestRandomMovie(roomId);
+    }
+});
+
+// دالة البحث بالاسم
+async function searchAndSendMovie(roomId, query) {
+    try {
+        const res = await axios.get(`https://api.themoviedb.org/3/search/movie?api_key=${TMDB_KEY}&query=${encodeURIComponent(query)}&language=ar-SA`);
+        if (res.data.results.length > 0) {
+            sendMovieToRoom(roomId, res.data.results[0], "بحثت لك ووجدت هذا:");
+        } else {
+            io.to(roomId).emit("chat-msg", { text: "عذراً، لم أجد فيلماً بهذا الاسم! 🔍", user: { name: "الذكاء الاصطناعي 🤖", avatar: "https://api.dicebear.com/7.x/bottts/svg?seed=ai" } });
+        }
+    } catch (e) { console.log(e); }
+}
+
+// دالة الاقتراح العشوائي
+async function suggestRandomMovie(roomId) {
+    try {
+        const res = await axios.get(`https://api.themoviedb.org/3/trending/movie/week?api_key=${TMDB_KEY}&language=ar-SA`);
+        const randomMovie = res.data.results[Math.floor(Math.random() * res.data.results.length)];
+        sendMovieToRoom(roomId, randomMovie, "ما رأيكم بهذا الاقتراح للسهرة؟");
+    } catch (e) { console.log(e); }
+}
+
+// دالة موحدة لإرسال كارت الفيلم
+function sendMovieToRoom(roomId, movie, intro) {
+    const videoUrl = `https://vidsrc.me/embed/movie?tmdb=${movie.id}`;
+    io.to(roomId).emit("chat-msg", { 
+        text: `${intro} **${movie.title}** 🎬`,
+        suggestion: videoUrl,
+        isSuggestion: true,
+        poster: `https://image.tmdb.org/t/p/w500${movie.poster_path}`,
+        user: { name: "الذكاء الاصطناعي 🤖", avatar: "https://api.dicebear.com/7.x/bottts/svg?seed=ai" } 
+    });
+}
 
 socket.on("disable-bot-button", (buttonId) => {
     const roomId = socket.userData?.roomId;
