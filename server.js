@@ -61,7 +61,7 @@ socket.on("change-video", (url) => {
 
 // تأكد من تثبيت axios عبر: npm install axios
 const axios = require('axios');
-const TMDB_KEY = "4a71b39887f9b5dd489791402728ab1a"; // استبدله بمفتاحك لاحقاً
+const TMDB_KEY = "63c062a2d817029ee9fe7760c74dea80"; // استبدله بمفتاحك لاحقاً
 
 socket.on("chat-msg", async (text) => {
     const roomId = socket.userData?.roomId;

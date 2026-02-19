@@ -3,7 +3,7 @@
 let isHost = false;
 const socket = io();
 const client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
-const TMDB_KEY = "4a71b39887f9b5dd489791402728ab1a";
+const TMDB_KEY = "63c062a2d817029ee9fe7760c74dea80";
 const APP_ID = "97b6d211d09447b480ae3b8b62cc4a68";
 const CHANNEL = "main_room";
 
