@@ -67,11 +67,37 @@ io.on("connection", (socket) => {
     });
 
     socket.on("chat-msg", (text) => {
-        const roomId = socket.userData?.roomId;
-        if (roomId) {
-            io.to(roomId).emit("chat-msg", { text, user: socket.userData });
+    const roomId = socket.userData?.roomId;
+    if (roomId) {
+        // 1. إرسال رسالة المستخدم العادية للجميع
+        io.to(roomId).emit("chat-msg", { text, user: socket.userData });
+
+        // 2. منطق الذكاء الاصطناعي (البوت)
+        const botTrigger = ["بوت", "اقترح", "اقتراح", "فيلم"];
+        const message = text.toLowerCase();
+
+        if (botTrigger.some(word => message.includes(word))) {
+            // هنا نحدد مصفوفة اقتراحات (يمكنك توسيعها لاحقاً)
+            const suggestions = [
+                "أنصحكم بمشاهدة فيلم Interstellar إذا كنتم تحبون الخيال العلمي والدراما! 🌌",
+                "ما رأيكم في فيلم Parasite؟ فيلم كوري أسطوري وحائز على الأوسكار! 🎭",
+                "إذا كنتم تبحثون عن رعب حقيقي، شاهدوا The Conjuring 👻",
+                "لقضاء وقت ممتع مع الأصدقاء، أنصحكم بفيلم Inception 🌀",
+                "لعشاق الأكشن، سلسلة John Wick لا تُعلى عليها! 🔥"
+            ];
+
+            const randomReply = suggestions[Math.floor(Math.random() * suggestions.length)];
+
+            // إرسال رد البوت بعد ثانية واحدة ليبدو وكأنه يفكر
+            setTimeout(() => {
+                io.to(roomId).emit("chat-msg", { 
+                    text: randomReply, 
+                    user: { name: "الذكاء الاصطناعي 🤖", avatar: "https://api.dicebear.com/7.x/bottts/svg?seed=ai" } 
+                });
+            }, 1000);
         }
-    });
+    }
+});
 
     socket.on("reaction", (emoji) => {
         const roomId = socket.userData?.roomId;

@@ -704,3 +704,10 @@ aside {
     white-space: nowrap;
     color: #ccc;
 }
+
+/* تمييز رسائل البوت */
+.msg-body b[innerText*="الذكاء الاصطناعي"] + .msg-content {
+    background: linear-gradient(135deg, rgba(255, 215, 0, 0.2) 0%, rgba(255, 215, 0, 0.1) 100%) !important;
+    border: 1px solid gold !important;
+    color: gold !important;
+}
