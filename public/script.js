@@ -283,28 +283,28 @@ function showEmoji(e) {
 
 document.getElementById('chatInput').onkeypress = (e) => {
     if(e.key === "Enter" && e.target.value !== "") {
-        socket.emit("chat-msg", e.target.value); e.target.value = "";
+        socket.emit("chat-msg", e.target.value); 
+        e.target.value = "";
     }
 };
+
 socket.on("chat-msg", (d) => {
-    const msgContainer = document.getElementById('messages'); // تأكد أن ID حاوية الشات عندك هو messages
+    const msgContainer = document.getElementById('messages');
     
     let botContent = "";
-if (d.isSuggestion) {
-    const uniqueId = "btn-" + Date.now();
-    // لا نضع شرط if(isHost) هنا أبداً
-    botContent = `
-        <div class="bot-suggestion-card">
-            <img src="${d.poster}" class="mini-poster">
-            <button id="${uniqueId}" onclick="playMovieDirectly('${d.suggestion}', '${uniqueId}')" class="bot-play-btn">
-                ▶️ تشغيل الفيلم للجميع
-            </button>
-        </div>`;
-}
+    if (d.isSuggestion) {
+        const uniqueId = "btn-" + Date.now();
+        botContent = `
+            <div class="bot-suggestion-card">
+                <img src="${d.poster}" class="mini-poster" onerror="this.src='https://via.placeholder.com/150x225?text=No+Poster'">
+                <button id="${uniqueId}" onclick="playMovieDirectly('${d.suggestion}', '${uniqueId}')" class="bot-play-btn">
+                    ▶️ تشغيل الفيلم للجميع
+                </button>
+            </div>`;
+    }
 
-    // هنا نقوم بإضافة الرسالة الأصلية + محتوى البوت (إن وجد) إلى الشاشة
     msgContainer.innerHTML += `
-        <div class="msg">
+        <div class="msg animate-in">
             <div class="msg-body">
                 <b>${d.user.name}:</b>
                 <div class="msg-content">
@@ -314,23 +314,36 @@ if (d.isSuggestion) {
             </div>
         </div>`;
     
-    // النزول لآخر رسالة تلقائياً
     msgContainer.scrollTop = msgContainer.scrollHeight;
 });
 
-// دالة التشغيل التي تطلق العد التنازلي
+// دالة التشغيل الموحدة (ترسل الأوامر للسيرفر)
 function playMovieDirectly(url, buttonId) {
-    // إخفاء الزر عند الجميع لعدم التكرار
+    // 1. إرسال أمر لإخفاء الزر عند الجميع فوراً
     socket.emit("disable-bot-button", buttonId);
-    // بدء العد التنازلي والتشغيل
+    
+    // 2. إرسال أمر ببدء العد التنازلي والتشغيل
     socket.emit("change-video", url);
 }
 
+// استقبال أمر إخفاء الزر من السيرفر
+socket.on("hide-button", (buttonId) => {
+    const btn = document.getElementById(buttonId);
+    if (btn) {
+        btn.disabled = true;
+        btn.style.background = "#444";
+        btn.innerHTML = "✅ تم بدء هذا العرض";
+        btn.style.cursor = "default";
+    }
+});
+
+// استقبال أمر بدء العد التنازلي
 socket.on("start-countdown", (url) => {
     const overlay = document.getElementById('countdown-overlay');
     const numberDisplay = document.getElementById('countdown-number');
-    let count = 5; // عدد الثواني
+    if(!overlay || !numberDisplay) return;
 
+    let count = 5;
     overlay.style.display = 'flex';
     numberDisplay.innerText = count;
 
@@ -341,34 +354,35 @@ socket.on("start-countdown", (url) => {
         if (count <= 0) {
             clearInterval(timer);
             overlay.style.display = 'none';
-            
-            // الآن نقوم بتشغيل الفيلم فعلياً
+            // تشغيل الفيديو النهائي
             renderVideo(url); 
         }
     }, 1000);
 });
 
-// دالة مساعدة لتشغيل الفيديو (تأكد أن أسماء الـ IDs تطابق ما لديك)
+// دالة معالجة تشغيل الفيديو النهائي
 function renderVideo(url) {
-    const iframe = document.getElementById('iframe-slot'); // أو مشغل الفيديو الخاص بك
-    if (url.includes('iframe') || url.includes('vidsrc')) {
-        iframe.innerHTML = `<iframe src="${url}" allowfullscreen allow="autoplay"></iframe>`;
+    const iframeSlot = document.getElementById('iframe-slot');
+    const ytArea = document.getElementById('youtube-player');
+    
+    // تنظيف الحاويات قبل التشغيل الجديد
+    ytArea.style.display = "none";
+    videoElement.style.display = "none";
+    iframeSlot.innerHTML = "";
+
+    if (url.includes('vidsrc') || url.includes('iframe')) {
+        iframeSlot.innerHTML = `<iframe src="${url}" allowfullscreen allow="autoplay" style="width:100%; height:100%; border:none;"></iframe>`;
+    } else if (url.includes('youtube') || url.includes('youtu.be')) {
+        handleSource(url); // استخدام الدالة الأصلية لليوتيوب
     } else {
-        // إذا كان رابط مباشر mp4
-        const video = document.getElementById('video');
-        video.src = url;
-        video.play();
+        // روابط mp4 المباشرة
+        videoElement.style.display = "block";
+        videoElement.src = url;
+        videoElement.play();
     }
 }
 
-// دالة التشغيل المباشر (متاحة للجميع)
-function playMovieDirectly(url, buttonId) {
-    // 1. إرسال أمر تشغيل الفيديو
-    socket.emit("change-video", url);
 
-    // 2. إرسال أمر لإخفاء الزر عند الجميع (باستخدام معرف فريد)
-    socket.emit("disable-bot-button", buttonId);
-}
 
 // استقبال أمر إخفاء الزر
 socket.on("hide-button", (buttonId) => {
