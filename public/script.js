@@ -290,17 +290,17 @@ socket.on("chat-msg", (d) => {
     const msgContainer = document.getElementById('messages'); // تأكد أن ID حاوية الشات عندك هو messages
     
     let botContent = "";
-    if (d.isSuggestion) {
-        const uniqueId = "btn-" + Date.now(); 
-        botContent = `
-            <div class="bot-suggestion-card" style="margin-top: 10px; text-align: center; background: #1a1a1a; padding: 10px; border-radius: 10px; border: 1px solid #e50914;">
-                <img src="${d.poster}" class="mini-poster" style="width: 120px; border-radius: 5px;" onerror="this.src='https://via.placeholder.com/150x225?text=No+Poster'">
-                <button id="${uniqueId}" onclick="playMovieDirectly('${d.suggestion}', '${uniqueId}')" class="bot-play-btn" style="display: block; width: 100%; margin-top: 10px; background: #e50914; color: white; border: none; padding: 8px; border-radius: 5px; cursor: pointer;">
-                    ▶️ تشغيل الفيلم للجميع
-                </button>
-            </div>
-        `;
-    }
+if (d.isSuggestion) {
+    const uniqueId = "btn-" + Date.now();
+    // لا نضع شرط if(isHost) هنا أبداً
+    botContent = `
+        <div class="bot-suggestion-card">
+            <img src="${d.poster}" class="mini-poster">
+            <button id="${uniqueId}" onclick="playMovieDirectly('${d.suggestion}', '${uniqueId}')" class="bot-play-btn">
+                ▶️ تشغيل الفيلم للجميع
+            </button>
+        </div>`;
+}
 
     // هنا نقوم بإضافة الرسالة الأصلية + محتوى البوت (إن وجد) إلى الشاشة
     msgContainer.innerHTML += `
