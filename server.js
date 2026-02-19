@@ -69,29 +69,26 @@ io.on("connection", (socket) => {
     socket.on("chat-msg", (text) => {
     const roomId = socket.userData?.roomId;
     if (roomId) {
-        // 1. إرسال رسالة المستخدم العادية للجميع
         io.to(roomId).emit("chat-msg", { text, user: socket.userData });
 
-        // 2. منطق الذكاء الاصطناعي (البوت)
-        const botTrigger = ["بوت", "اقترح", "اقتراح", "فيلم"];
         const message = text.toLowerCase();
-
-        if (botTrigger.some(word => message.includes(word))) {
-            // هنا نحدد مصفوفة اقتراحات (يمكنك توسيعها لاحقاً)
-            const suggestions = [
-                "أنصحكم بمشاهدة فيلم Interstellar إذا كنتم تحبون الخيال العلمي والدراما! 🌌",
-                "ما رأيكم في فيلم Parasite؟ فيلم كوري أسطوري وحائز على الأوسكار! 🎭",
-                "إذا كنتم تبحثون عن رعب حقيقي، شاهدوا The Conjuring 👻",
-                "لقضاء وقت ممتع مع الأصدقاء، أنصحكم بفيلم Inception 🌀",
-                "لعشاق الأكشن، سلسلة John Wick لا تُعلى عليها! 🔥"
+        if (message.includes("بوت") || message.includes("اقترح")) {
+            
+            // قائمة أفلام ذكية مع روابطها (يمكنك جلبها من TMDB لاحقاً)
+            const movies = [
+                { name: "Interstellar", url: "https://vidsrc.me/embed/movie?tmdb=157336" },
+                { name: "Inception", url: "https://vidsrc.me/embed/movie?tmdb=27205" },
+                { name: "The Dark Knight", url: "https://vidsrc.me/embed/movie?tmdb=155" },
+                { name: "Spiderman: No Way Home", url: "https://vidsrc.me/embed/movie?tmdb=634649" }
             ];
 
-            const randomReply = suggestions[Math.floor(Math.random() * suggestions.length)];
-
-            // إرسال رد البوت بعد ثانية واحدة ليبدو وكأنه يفكر
+            const movie = movies[Math.floor(Math.random() * movies.length)];
+            
             setTimeout(() => {
                 io.to(roomId).emit("chat-msg", { 
-                    text: randomReply, 
+                    text: `أنصحكم بمشاهدة فيلم **${movie.name}**! 🎬`,
+                    suggestion: movie.url, // نرسل الرابط كبيانات إضافية
+                    isSuggestion: true,   // علامة لتمييز الرسالة في الطرف الأمامي
                     user: { name: "الذكاء الاصطناعي 🤖", avatar: "https://api.dicebear.com/7.x/bottts/svg?seed=ai" } 
                 });
             }, 1000);

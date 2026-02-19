@@ -711,3 +711,22 @@ aside {
     border: 1px solid gold !important;
     color: gold !important;
 }
+
+.bot-play-btn {
+    display: block;
+    margin-top: 10px;
+    background: #27ae60;
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: bold;
+    transition: 0.3s;
+}
+
+.bot-play-btn:hover {
+    background: #2ecc71;
+    transform: scale(1.05);
+}

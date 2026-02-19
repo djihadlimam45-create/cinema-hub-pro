@@ -286,10 +286,37 @@ document.getElementById('chatInput').onkeypress = (e) => {
 };
 socket.on("chat-msg", d => {
     const msg = document.getElementById('messages');
-    msg.innerHTML += `<div class="msg"><img src="${d.user.avatar}"><div class="msg-body"><b>${d.user.name}</b><div class="msg-content">${d.text}</div></div></div>`;
+    
+    // إنشاء عنصر الرسالة
+    let botBtn = "";
+    // إذا كانت الرسالة اقتراحاً من البوت وأنت الآدمن، أظهر زر التشغيل
+    if (d.isSuggestion && isHost) {
+        botBtn = `<button onclick="playSuggestedMovie('${d.suggestion}')" class="bot-play-btn">▶️ تشغيل الفيلم الآن</button>`;
+    }
+
+    msg.innerHTML += `
+        <div class="msg">
+            <img src="${d.user.avatar}">
+            <div class="msg-body">
+                <b>${d.user.name}</b>
+                <div class="msg-content">
+                    ${d.text}
+                    ${botBtn}
+                </div>
+            </div>
+        </div>`;
+    
     msg.scrollTop = msg.scrollHeight;
 });
 
+// وظيفة تشغيل الفيلم المقترح (للآدمن)
+function playSuggestedMovie(url) {
+    if (isHost) {
+        socket.emit("change-video", url);
+        // اختياري: إرسال رسالة شكر للبوت
+        socket.emit("chat-msg", "شكراً أيها البوت، تم اختيار الفيلم! ✅");
+    }
+}
 function copyInviteLink() {
     const inviteUrl = `${window.location.origin}?room=${document.getElementById('room-id').value || 'main'}`;
     navigator.clipboard.writeText(inviteUrl).then(() => alert("تم نسخ رابط الدعوة! ✅"));
