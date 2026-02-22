@@ -124,3 +124,11 @@ io.on("connection", (socket) => {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log(`🚀 السيرفر يعمل على بورت: ${PORT}`));
+
+// تأكد أن هذه الأسطر موجودة في بداية server.js بعد تعريف app
+app.use((req, res, next) => {
+    res.header("Access-Control-Allow-Origin", "*"); // السماح لجميع المواقع
+    res.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+    next();
+});
