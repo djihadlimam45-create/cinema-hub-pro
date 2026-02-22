@@ -11,6 +11,7 @@ const io = new Server(server);
 
 // --- إعدادات أساسية ---
 app.use(cors());
+app.use(express.text({ type: '*/*' })); // لجعل السيرفر يقرأ أي نوع بيانات قادمة
 app.use(express.json());
 app.use(express.static("public"));
 
